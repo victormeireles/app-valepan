@@ -19,7 +19,7 @@ export async function fetchSheetData(): Promise<SheetRow[]> {
     const data = await response.json();
     
     // Converter strings de data de volta para objetos Date
-    return data.map((row: any) => ({
+    return data.map((row: SheetRow) => ({
       ...row,
       data: new Date(row.data)
     }));
@@ -29,8 +29,9 @@ export async function fetchSheetData(): Promise<SheetRow[]> {
   }
 }
 
-// Função para normalizar os dados da planilha
-function normalizeRows(values: any[][]): SheetRow[] {
+// Função para normalizar os dados da planilha (não utilizada atualmente)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function normalizeRows(values: string[][]): SheetRow[] {
   const normalizedRows: SheetRow[] = [];
 
   for (const row of values) {

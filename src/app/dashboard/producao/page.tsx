@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 export default async function ProducaoDashboard() {
   const session = await auth();
@@ -15,9 +16,9 @@ export default async function ProducaoDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-4">
-              <a href="/" className="text-blue-600 hover:text-blue-800">
+              <Link href="/" className="text-blue-600 hover:text-blue-800">
                 ← Voltar
-              </a>
+              </Link>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Dashboard de Produção</h1>
                 <p className="text-gray-600">Monitoramento das etapas de produção</p>

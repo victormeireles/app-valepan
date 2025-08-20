@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import KPICard from '@/components/KPICard';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import PeriodFilter from '@/components/PeriodFilter';
@@ -33,13 +34,7 @@ export default function FaturamentoDashboard() {
     redirect('/login');
   }
 
-  useEffect(() => {
-    if (status === 'authenticated') {
-      loadDashboardData();
-    }
-  }, [status]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
       // Buscar dados da API
@@ -57,7 +52,13 @@ export default function FaturamentoDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      loadDashboardData();
+    }
+  }, [status, loadDashboardData]);
 
   const calculateDashboardData = (rows: SheetRow[], startDate: Date, endDate: Date): DashboardData => {
     // Filtrar dados do período atual
@@ -185,9 +186,9 @@ export default function FaturamentoDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-4">
-              <a href="/" className="text-blue-600 hover:text-blue-800">
+              <Link href="/" className="text-blue-600 hover:text-blue-800">
                 ← Voltar
-              </a>
+              </Link>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Dashboard de Faturamento</h1>
                 <p className="text-gray-600">Visão geral do faturamento e receitas</p>

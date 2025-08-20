@@ -2,9 +2,9 @@ import { google } from 'googleapis';
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 
-// Configuração do Google Sheets
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-const RANGE = process.env.SHEETS_RANGE || 'M:Q';
+// Configuração do Google Sheets (comentadas pois usando dados demo)
+// const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+// const RANGE = process.env.SHEETS_RANGE || 'M:Q';
 
 interface SheetRow {
   nfValida: boolean;
@@ -14,7 +14,8 @@ interface SheetRow {
   valor: number;
 }
 
-// Função para autenticar com Google Sheets usando as credenciais do NextAuth
+// Função para autenticar com Google Sheets usando as credenciais do NextAuth (não utilizada no momento)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function getGoogleSheetsClient() {
   const session = await auth();
   
@@ -30,8 +31,9 @@ async function getGoogleSheetsClient() {
   return google.sheets({ version: 'v4', auth: authClient });
 }
 
-// Função para normalizar os dados da planilha
-function normalizeRows(values: any[][]): SheetRow[] {
+// Função para normalizar os dados da planilha (não utilizada no momento)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function normalizeRows(values: string[][]): SheetRow[] {
   const normalizedRows: SheetRow[] = [];
 
   for (const row of values) {
