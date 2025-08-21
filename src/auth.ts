@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 
-const authConfig = {
+const config = {
 	secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 	providers: [
 		Google({
@@ -31,6 +31,7 @@ const authConfig = {
 		},
 		async session({ session, token }) {
 			// Passar o access token para a sessão
+			// @ts-expect-error - NextAuth v5 beta typing issue
 			session.accessToken = token.accessToken as string;
 			return session;
 		},
@@ -60,6 +61,6 @@ const authConfig = {
 	},
 };
 
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+export const { handlers, auth, signIn, signOut } = NextAuth(config);
 
 
