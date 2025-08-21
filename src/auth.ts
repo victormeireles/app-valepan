@@ -1,5 +1,5 @@
 
-/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 
@@ -66,12 +66,14 @@ const authConfig = {
 	},
 };
 
-// @ts-ignore
+// Contorna problemas de tipagem do NextAuth v5 beta
+const nextAuthResult = (NextAuth as any)(authConfig);
+
 export const {
   handlers,
   auth,
   signIn,
   signOut,
-} = NextAuth(authConfig);
+} = nextAuthResult;
 
 
