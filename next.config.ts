@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
     SPREADSHEET_ID: process.env.SPREADSHEET_ID,
     SHEETS_RANGE: process.env.SHEETS_RANGE,
   },
+  images: {
+    domains: ['lh3.googleusercontent.com'],
+  },
 };
 
 export default nextConfig;

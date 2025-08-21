@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import KPICard from '@/components/KPICard';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import PeriodFilter from '@/components/PeriodFilter';
@@ -203,9 +204,11 @@ export default function FaturamentoDashboard() {
               <div className="text-sm text-gray-600">
                 {session.user?.name}
               </div>
-              <img 
+              <Image 
                 src={session.user?.image || ""} 
                 alt="Avatar" 
+                width={32}
+                height={32}
                 className="w-8 h-8 rounded-full"
               />
             </div>

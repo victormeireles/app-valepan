@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import Image from "next/image";
 
 export default async function Home() {
   const session = await auth();
@@ -52,9 +53,11 @@ export default async function Home() {
               <div className="text-sm text-gray-600">
                 Bem-vindo, <span className="font-medium">{session.user?.name}</span>
               </div>
-              <img 
+              <Image 
                 src={session.user?.image || ""} 
                 alt="Avatar" 
+                width={32}
+                height={32}
                 className="w-8 h-8 rounded-full"
               />
             </div>
