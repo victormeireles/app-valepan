@@ -1,10 +1,7 @@
 import { google } from 'googleapis';
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
-
-// Configuração do Google Sheets (comentadas pois usando dados demo)
-// const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-// const RANGE = process.env.SHEETS_RANGE || 'M:Q';
+import { getSheetConfig } from '@/config/sheets';
 
 interface SheetRow {
   nfValida: boolean;
@@ -14,13 +11,12 @@ interface SheetRow {
   valor: number;
 }
 
-// Função para autenticar com Google Sheets usando as credenciais do NextAuth (não utilizada no momento)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// Função para autenticar com Google Sheets usando as credenciais do NextAuth
 async function getGoogleSheetsClient() {
   const session = await auth();
   
   if (!session?.accessToken) {
-    throw new Error('Não foi possível obter token de acesso');
+    throw new Error('Não foi possível obter token de acesso do Google');
   }
 
   const authClient = new google.auth.OAuth2();
@@ -31,8 +27,7 @@ async function getGoogleSheetsClient() {
   return google.sheets({ version: 'v4', auth: authClient });
 }
 
-// Função para normalizar os dados da planilha (não utilizada no momento)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// Função para normalizar os dados da planilha
 function normalizeRows(values: string[][]): SheetRow[] {
   const normalizedRows: SheetRow[] = [];
 
@@ -115,82 +110,103 @@ function parseValueBR(valueStr: string): number {
   }
 }
 
-// Função para gerar dados demo (para desenvolvimento/teste)
-function generateDemoData(): SheetRow[] {
-  const demoData: SheetRow[] = [];
-  const clientes = [
-    'Padaria Central', 'Mercado São João', 'Café da Esquina', 
-    'Supermercado Bom Preço', 'Lanchonete do Zé', 'Padaria Nova',
-    'Mercado da Vila', 'Café Expresso', 'Padaria do Bairro'
-  ];
+// Cache para dados (evita requisições desnecessárias)
+const cache = new Map<string, { data: SheetRow[]; timestamp: number }>();
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutos
 
-  // Gerar dados dos últimos 90 dias
-  const hoje = new Date();
-  for (let i = 90; i >= 0; i--) {
-    const data = new Date(hoje);
-    data.setDate(data.getDate() - i);
 
-    // Gerar 2-8 vendas por dia
-    const vendasDia = Math.floor(Math.random() * 7) + 2;
-    
-    for (let j = 0; j < vendasDia; j++) {
-      const cliente = clientes[Math.floor(Math.random() * clientes.length)];
-      const valor = Math.random() * 2000 + 100; // Entre R$ 100 e R$ 2100
 
-      demoData.push({
-        nfValida: true,
-        anoMes: `${data.getFullYear()}${String(data.getMonth() + 1).padStart(2, '0')}`,
-        data: new Date(data),
-        cliente,
-        valor,
-      });
-    }
-  }
-
-  return demoData;
-}
-
-export async function GET() {
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ dashboard: string }> }
+) {
+  const { dashboard } = await context.params;
+  
   try {
     // Verificar se o usuário está autenticado
     const session = await auth();
+    console.log(`[API ${dashboard}] Session completa:`, session);
+    
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
-
-    // Por enquanto, retornar dados demo
-    // TODO: Descomentar quando quiser usar dados reais da planilha
-    /*
-    if (!SPREADSHEET_ID) {
-      return NextResponse.json({ error: 'SPREADSHEET_ID não configurado' }, { status: 500 });
+    
+    console.log(`[API ${dashboard}] AccessToken:`, session.accessToken);
+    
+    // Obter configuração da planilha para este dashboard
+    const sheetConfig = getSheetConfig(dashboard);
+    if (!sheetConfig) {
+      return NextResponse.json(
+        { error: `Dashboard '${dashboard}' não configurado` }, 
+        { status: 404 }
+      );
     }
 
+    // Verificar cache
+    const cacheKey = `${dashboard}-${sheetConfig.spreadsheetId}-${sheetConfig.range}`;
+    const cached = cache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      console.log(`Cache hit para ${dashboard}`);
+      return NextResponse.json(cached.data);
+    }
+
+    console.log(`Buscando dados da planilha para ${dashboard}:`, {
+      spreadsheetId: sheetConfig.spreadsheetId,
+      range: sheetConfig.range
+    });
+
+    // Buscar dados da Google Sheets (apenas dados reais)
     const sheets = await getGoogleSheetsClient();
     
     const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: RANGE,
+      spreadsheetId: sheetConfig.spreadsheetId,
+      range: sheetConfig.range,
     });
 
     const values = response.data.values;
     
     if (!values || values.length === 0) {
+      console.log(`Nenhum dado encontrado na planilha para ${dashboard}`);
       return NextResponse.json([]);
     }
 
     // Pular a primeira linha (cabeçalho)
     const dataRows = values.slice(1);
     const normalizedData = normalizeRows(dataRows);
-    */
-
-    // Usar dados demo por enquanto
-    const demoData = generateDemoData();
     
-    return NextResponse.json(demoData);
+    console.log(`✅ Dados reais da planilha carregados para ${dashboard}:`, {
+      totalRows: values.length,
+      validRows: normalizedData.length
+    });
+
+    // Atualizar cache
+    cache.set(cacheKey, { data: normalizedData, timestamp: Date.now() });
+    
+    return NextResponse.json(normalizedData);
   } catch (error) {
-    console.error('Erro ao buscar dados da planilha:', error);
+    console.error(`❌ Erro ao buscar dados da planilha para ${dashboard}:`, error);
+    
+    // Se o erro for de autorização, tentar refresh token via frontend
+    if (error instanceof Error && (
+      error.message.includes('token de acesso') || 
+      error.message.includes('authentication') ||
+      error.message.includes('unauthorized')
+    )) {
+      return NextResponse.json(
+        { 
+          error: 'Token expirado. Por favor, recarregue a página para renovar a autenticação.',
+          shouldRefresh: true 
+        }, 
+        { status: 401 }
+      );
+    }
+    
+    // Para outros erros, retornar erro específico
     return NextResponse.json(
-      { error: 'Falha ao carregar dados da planilha' }, 
+      { 
+        error: 'Falha ao carregar dados da planilha. Verifique a conexão e tente novamente.',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      }, 
       { status: 500 }
     );
   }

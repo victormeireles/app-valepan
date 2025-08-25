@@ -1,7 +1,8 @@
+import { signIn } from "@/auth";
+
 export default function LoginPage() {
 	async function doSignIn() {
 		"use server";
-		const { signIn } = await import("@/auth");
 		await signIn("google");
 	}
 

@@ -7,16 +7,43 @@ export interface SheetRow {
   valor: number;
 }
 
-// Função para buscar dados da API (servidor)
-export async function fetchSheetData(): Promise<SheetRow[]> {
+// Função para buscar dados da API (servidor) para um dashboard específico
+export async function fetchSheetData(dashboard: string = 'faturamento'): Promise<SheetRow[]> {
   try {
-    const response = await fetch('/api/sheets/data');
+    const response = await fetch(`/api/sheets/${dashboard}`);
     
     if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      
+      if (response.status === 401) {
+        // Se token expirou, tentar refresh automático recarregando
+        if (errorData.shouldRefresh) {
+          console.log('Token expirado, recarregando página para renovar...');
+          // Aguardar um pouco para o refresh token funcionar
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        }
+        throw new Error(errorData.error || 'Sessão expirada. Recarregando página...');
+      }
+      
+      if (response.status === 404) {
+        throw new Error(`Dashboard '${dashboard}' não encontrado.`);
+      }
+      
+      if (response.status === 500) {
+        throw new Error(errorData.error || 'Falha ao carregar dados da planilha');
+      }
+      
       throw new Error('Falha ao carregar dados da planilha');
     }
 
     const data = await response.json();
+    
+    // Verificar se retornou erro mesmo com status 200
+    if (data.error) {
+      throw new Error(data.error);
+    }
     
     // Converter strings de data de volta para objetos Date
     return data.map((row: SheetRow) => ({
@@ -25,7 +52,7 @@ export async function fetchSheetData(): Promise<SheetRow[]> {
     }));
   } catch (error) {
     console.error('Erro ao buscar dados da planilha:', error);
-    throw new Error('Falha ao carregar dados da planilha');
+    throw error;
   }
 }
 

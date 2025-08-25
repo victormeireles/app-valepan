@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Image from "next/image";
+import LogoutButton from "@/components/LogoutButton";
 
 export default async function Home() {
   const session = await auth();
@@ -60,6 +61,7 @@ export default async function Home() {
                 height={32}
                 className="w-8 h-8 rounded-full"
               />
+              <LogoutButton />
             </div>
           </div>
         </div>
