@@ -1087,7 +1087,7 @@ export default function FaturamentoDashboard() {
   // Mostrar loading bonito sempre que necessário
   const showLoading = status === 'loading' || loading || initialLoad || !session;
   
-  if (showLoading && status !== 'unauthenticated') {
+  if (showLoading) {
   return (
       <>
         <style jsx global>{`
