@@ -229,14 +229,26 @@ export default function FaturamentoDashboard() {
     // Valores atuais
     const faturamentoAtual = currentData.reduce((sum, row) => sum + row.valor, 0);
     const pedidosAtual = currentData.length;
-    const ticketMedioAtual = pedidosAtual > 0 ? faturamentoAtual / pedidosAtual : 0;
+    const cmvAtual = currentData.reduce((sum, row) => sum + row.cmv, 0);
+    const margemBrutaAtual = faturamentoAtual > 0 ? (1 - (cmvAtual / faturamentoAtual)) * 100 : 0;
     const clientesUnicosAtual = new Set(currentData.map(row => row.cliente)).size;
+    
+    // Novas métricas: unidades, pacotes e caixas
+    const unidadesAtual = currentData.reduce((sum, row) => sum + (row.unidades || 0), 0);
+    const pacotesAtual = currentData.reduce((sum, row) => sum + (row.pacotes || 0), 0);
+    const caixasAtual = currentData.reduce((sum, row) => sum + (row.caixas || 0), 0);
 
     // Valores anteriores
     const faturamentoAnterior = previousData.reduce((sum, row) => sum + row.valor, 0);
     const pedidosAnterior = previousData.length;
-    const ticketMedioAnterior = pedidosAnterior > 0 ? faturamentoAnterior / pedidosAnterior : 0;
+    const cmvAnterior = previousData.reduce((sum, row) => sum + row.cmv, 0);
+    const margemBrutaAnterior = faturamentoAnterior > 0 ? (1 - (cmvAnterior / faturamentoAnterior)) * 100 : 0;
     const clientesUnicosAnterior = new Set(previousData.map(row => row.cliente)).size;
+    
+    // Novas métricas anteriores
+    const unidadesAnterior = previousData.reduce((sum, row) => sum + (row.unidades || 0), 0);
+    const pacotesAnterior = previousData.reduce((sum, row) => sum + (row.pacotes || 0), 0);
+    const caixasAnterior = previousData.reduce((sum, row) => sum + (row.caixas || 0), 0);
 
     // Calcular variações
     const calcVariacao = (atual: number, anterior: number) => 
@@ -279,13 +291,25 @@ export default function FaturamentoDashboard() {
           variacao: calcVariacao(pedidosAtual, pedidosAnterior),
           projecao: projPed || pedidosAtual * 2
         },
-        ticketMedio: { 
-          valor: ticketMedioAtual,
-          variacao: calcVariacao(ticketMedioAtual, ticketMedioAnterior)
+        margemBruta: { 
+          valor: margemBrutaAtual,
+          variacao: calcVariacao(margemBrutaAtual, margemBrutaAnterior)
         },
         clientesUnicos: { 
           valor: clientesUnicosAtual,
-          variacao: calcVariacao(clientesUnicosAtual, clientesUnicosAnterior)
+          variacao: clientesUnicosAtual - clientesUnicosAnterior
+        },
+        unidades: {
+          valor: unidadesAtual,
+          variacao: calcVariacao(unidadesAtual, unidadesAnterior)
+        },
+        pacotes: {
+          valor: pacotesAtual,
+          variacao: calcVariacao(pacotesAtual, pacotesAnterior)
+        },
+        caixas: {
+          valor: caixasAtual,
+          variacao: calcVariacao(caixasAtual, caixasAnterior)
         },
         faturamentoAnual: { 
           valor: faturamentoYTD,
@@ -342,10 +366,14 @@ export default function FaturamentoDashboard() {
       );
       
       const faturamento = dadosSemana.reduce((sum, row) => sum + row.valor, 0);
+      const cmv = dadosSemana.reduce((sum, row) => sum + row.cmv, 0);
+      const margemBruta = faturamento > 0 ? (1 - (cmv / faturamento)) * 100 : 0;
       
       semanas.unshift({
         label: `${formatDDMM(weekStart)}–${formatDDMM(weekEnd)}`,
         faturamento,
+        cmv,
+        margemBruta,
         inicio: weekStart,
         fim: weekEnd
       });
@@ -353,11 +381,14 @@ export default function FaturamentoDashboard() {
 
     // Top clientes
     const clienteMap = new Map<string, number>();
+    const clienteCMVMap = new Map<string, number>();
+    
     filteredData.forEach(row => {
       clienteMap.set(row.cliente, (clienteMap.get(row.cliente) || 0) + row.valor);
+      clienteCMVMap.set(row.cliente, (clienteCMVMap.get(row.cliente) || 0) + row.cmv);
     });
     
-    const cores = ['#7bb0ff', '#00d3a7', '#e67e22', '#f4c27a', '#c0392b', '#888'];
+    const cores = ['#1E88E5', '#00d3a7', '#e67e22', '#f4c27a', '#c0392b', '#888'];
     const allClientes = Array.from(clienteMap.entries()).sort(([,a], [,b]) => b - a);
     
     // Top 5 + Outros
@@ -365,19 +396,39 @@ export default function FaturamentoDashboard() {
     const outros = allClientes.slice(5);
     const outrosTotal = outros.reduce((sum, [, valor]) => sum + valor, 0);
     
+    // Calcular margem bruta para "Outros" (média ponderada)
+    const outrosCMV = outros.reduce((sum, [cliente]) => sum + (clienteCMVMap.get(cliente) || 0), 0);
+    const outrosMargemBruta = outrosTotal > 0 ? Math.round((1 - (outrosCMV / outrosTotal)) * 100) : 0;
+    
     const topClientes = [
-      ...top5.map(([cliente, valor], index) => ({
-        cliente,
-        valor,
-        cor: cores[index]
-      })),
+      ...top5.map(([cliente, valor], index) => {
+        const cmv = clienteCMVMap.get(cliente) || 0;
+        const margemBruta = valor > 0 ? Math.round((1 - (cmv / valor)) * 100) : 0;
+        return {
+          cliente,
+          valor,
+          cmv,
+          margemBruta,
+          cor: cores[index]
+        };
+      }),
       // Adicionar "Outros" se houver clientes além do Top 5
       ...(outros.length > 0 ? [{
         cliente: 'Outros',
         valor: outrosTotal,
+        cmv: outrosCMV,
+        margemBruta: outrosMargemBruta,
         cor: cores[5] // Cor cinza para "Outros"
       }] : [])
     ];
+
+    // Calcular limites da margem bruta para o eixo secundário
+    const margensBrutas = semanas.map(s => s.margemBruta).filter(m => !isNaN(m) && m > 0);
+    const minMargem = Math.min(...margensBrutas);
+    const maxMargem = Math.max(...margensBrutas);
+    const margemRange = maxMargem - minMargem;
+    const y1Min = Math.max(0, minMargem - 5);
+    const y1Max = maxMargem + 15;
 
     // Rankings de variação por cliente (top 5 up/down) - como no original
     const sumByClient = (data: SheetRow[]) => {
@@ -489,7 +540,8 @@ export default function FaturamentoDashboard() {
       topClientes,
       rankingUp,
       rankingDown,
-      engajamento
+      engajamento,
+      y1Limits: { min: y1Min, max: y1Max }
     };
   };
 
@@ -543,35 +595,71 @@ export default function FaturamentoDashboard() {
         type: 'bar',
         data: {
           labels: chartData.semanas.map((s: any) => s.label),
-          datasets: [{
-            label: 'Faturamento',
-            data: chartData.semanas.map((s: any) => s.faturamento),
-            backgroundColor: '#6da8ff',
-            borderRadius: 8,
-            borderSkipped: 'bottom'
-          }]
+          datasets: [
+            {
+              label: 'Margem Bruta',
+              data: chartData.semanas.map((s: any) => s.margemBruta),
+              type: 'line',
+              borderColor: '#FFA726',
+              backgroundColor: 'rgba(255, 107, 107, 0.1)',
+              borderWidth: 3,
+              pointBackgroundColor: '#FFA726',
+              pointBorderColor: '#FFA726',
+              pointBorderWidth: 0,
+              pointRadius: 6,
+              pointHoverRadius: 8,
+              fill: false,
+              tension: 0.4,
+              yAxisID: 'y1',
+              order: 1
+            },
+            {
+              label: 'Faturamento',
+              data: chartData.semanas.map((s: any) => s.faturamento),
+              backgroundColor: '#1E88E5',
+              borderRadius: 8,
+              borderSkipped: 'bottom',
+              yAxisID: 'y',
+              order: 2
+            }
+          ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          layout: { padding: { top: 28, right: 8, left: 8, bottom: 8 } },
+          layout: { padding: { top: 8, right: 8, left: 8, bottom: 8 } },
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
           plugins: { 
-            legend: { display: false },
-            subtitle: { 
-              display: true, 
-              text: 'Clique nas barras para filtrar o período', 
-              color: '#9fb0c7', 
-              font: { size: 11, weight: '600' }, 
-              padding: { bottom: 6 } 
+            legend: { 
+              display: true,
+              position: 'top',
+              labels: {
+                color: '#c9cbd6',
+                usePointStyle: true,
+                padding: 20
+              }
             },
             tooltip: { 
               callbacks: { 
-                label: (ctx: any) => `Faturamento: ${formatK(ctx.parsed.y)}` 
+                label: (ctx: any) => {
+                  if (ctx.dataset.label === 'Faturamento') {
+                    return `Faturamento: ${formatK(ctx.parsed.y)}`;
+                  } else if (ctx.dataset.label === 'Margem Bruta') {
+                    return `Margem Bruta: ${ctx.parsed.y.toFixed(1)}%`;
+                  }
+                  return ctx.dataset.label;
+                }
               } 
             }
           },
           scales: {
             y: { 
+              type: 'linear',
+              display: false,
+              position: 'left',
               grace: '10%',
               beginAtZero: true,
               grid: { color: 'rgba(255,255,255,0.1)' },
@@ -588,6 +676,20 @@ export default function FaturamentoDashboard() {
                 }
               }
             },
+            y1: {
+              type: 'linear',
+              display: false,
+              position: 'right',
+              grace: '0%',
+              beginAtZero: false,
+              min: chartData.y1Limits?.min || 0,
+              max: chartData.y1Limits?.max || 100,
+              grid: { drawOnChartArea: false },
+              ticks: { 
+                color: '#FFA726',
+                callback: (v: any) => `${v.toFixed(1)}%`
+              }
+            },
             x: { 
               grid: { display: false },
               ticks: { color: '#c9cbd6' }
@@ -598,26 +700,40 @@ export default function FaturamentoDashboard() {
           id: 'datalabels',
           afterDatasetsDraw: (chart: any) => {
             const { ctx, data } = chart;
-            chart.data.datasets.forEach((dataset: any, i: number) => {
-              const meta = chart.getDatasetMeta(i);
-              meta.data.forEach((bar: any, index: number) => {
-                const value = dataset.data[index];
-                if (value > 0) {
-                  ctx.fillStyle = '#cfe2ff';
-                  ctx.font = 'bold 11px sans-serif';
-                  ctx.textAlign = 'center';
-                  // Formatação com 0 casas decimais
-                  const formatValue = (val: number) => {
-                    if (val >= 1000000) {
-                      return `${Math.round(val / 1000000)}M`;
-                    } else if (val >= 1000) {
-                      return `${Math.round(val / 1000)}k`;
-                    }
-                    return Math.round(val).toString();
-                  };
-                  ctx.fillText(formatValue(value), bar.x, bar.y - 5);
-                }
-              });
+            
+            // Mostrar valores do faturamento nas barras (azuis)
+            const faturamentoDataset = chart.data.datasets[1]; // Dataset das barras
+            const faturamentoMeta = chart.getDatasetMeta(1);
+            faturamentoMeta.data.forEach((bar: any, index: number) => {
+              const value = faturamentoDataset.data[index];
+              if (value > 0) {
+                ctx.fillStyle = '#cfe2ff'; // Cor azul clara para o texto
+                ctx.font = 'bold 11px sans-serif';
+                ctx.textAlign = 'center';
+                // Formatação com 0 casas decimais para faturamento
+                const formatValue = (val: number) => {
+                  if (val >= 1000000) {
+                    return `${Math.round(val / 1000000)}M`;
+                  } else if (val >= 1000) {
+                    return `${Math.round(val / 1000)}k`;
+                  }
+                  return Math.round(val).toString();
+                };
+                ctx.fillText(formatValue(value), bar.x, bar.y - 5);
+              }
+            });
+            
+            // Mostrar valores da margem bruta nos pontos da linha (vermelhos)
+            const margemDataset = chart.data.datasets[0]; // Dataset da linha
+            const margemMeta = chart.getDatasetMeta(0);
+            margemMeta.data.forEach((point: any, index: number) => {
+              const value = margemDataset.data[index];
+              if (value > 0) {
+                ctx.fillStyle = '#FFF'; // Cor vermelha da linha
+                ctx.font = 'bold 10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${value.toFixed(1)}%`, point.x, point.y - 15);
+              }
             });
           }
         }]
@@ -699,12 +815,6 @@ export default function FaturamentoDashboard() {
           cutout: '68%',
           plugins: {
             legend: { display: false },
-            subtitle: { 
-              display: true, 
-              text: selectedClients.length === 1 ? `Filtrado: ${selectedClients[0]}` : 'Clique para filtrar por cliente (Top 5 + Outros)', 
-              color: '#9fb0c7', 
-              font: { size: 11, weight: '600' } 
-            },
             tooltip: {
               callbacks: {
                 label: (ctx: any) => {
@@ -732,8 +842,8 @@ export default function FaturamentoDashboard() {
                   ctx.lineWidth = 3;
                   ctx.font = 'bold 11px sans-serif';
                   ctx.textAlign = 'center';
-                  ctx.strokeText(`${pct.toFixed(1)}%`, x, y);
-                  ctx.fillText(`${pct.toFixed(1)}%`, x, y);
+                  ctx.strokeText(`${pct.toFixed(0)}%`, x, y);
+                  ctx.fillText(`${pct.toFixed(0)}%`, x, y);
                 }
               });
             });
@@ -838,7 +948,7 @@ export default function FaturamentoDashboard() {
               chartData.engajamento.quase,
               chartData.engajamento.churn
             ],
-            backgroundColor: ['#7bb0ff', '#00d3a7', '#ffb84d', '#ff6b6b'],
+            backgroundColor: ['#1E88E5', '#00d3a7', '#ffb84d', '#ff6b6b'],
             borderRadius: 8,
             borderSkipped: 'bottom'
           }]
@@ -850,7 +960,7 @@ export default function FaturamentoDashboard() {
           plugins: {
             legend: { display: false },
             subtitle: {
-              display: true,
+              display: false,
               text: 'Clique nas barras para ver a lista de clientes',
               color: '#9fb0c7',
               font: { size: 11, weight: '600' },
@@ -963,18 +1073,17 @@ export default function FaturamentoDashboard() {
     }).format(value);
   };
 
-  const formatK = (value: number | undefined | null) => {
-    if (value === null || value === undefined || isNaN(value)) return '0';
-    
+  // Função helper para formatar valores em K e M com a regra de casas decimais
+  const formatK = (value: number) => {
     const absValue = Math.abs(value);
-    const sign = value < 0 ? '-' : '';
-    
     if (absValue >= 1000000) {
-      return `${sign}${(absValue / 1000000).toFixed(1)}M`;
+      const scaledValue = value / 1000000;
+      return formatNumber(scaledValue, 'M');
     } else if (absValue >= 1000) {
-      return `${sign}${(absValue / 1000).toFixed(1)}k`;
+      const scaledValue = value / 1000;
+      return formatNumber(scaledValue, 'k');
     }
-    return Math.round(value).toString();
+    return formatNumber(value);
   };
 
   const formatPercent = (value: number | undefined | null) => {
@@ -1135,7 +1244,7 @@ export default function FaturamentoDashboard() {
           }
           .bg-animations { position: fixed; inset: 0; overflow: hidden; z-index: -1; }
           .orb { position: absolute; width: 520px; height: 520px; filter: blur(82px); opacity: .4; border-radius: 50%; animation: float 20s ease-in-out infinite; }
-          .orb-a { background: radial-gradient(circle at 30% 30%, #7bb0ff, transparent 60%); top: -120px; left: -80px; }
+          .orb-a { background: radial-gradient(circle at 30% 30%, #1E88E5, transparent 60%); top: -120px; left: -80px; }
           .orb-b { background: radial-gradient(circle at 70% 70%, #00d3a7, transparent 60%); bottom: -140px; right: -120px; animation-delay: -6s; }
           @keyframes float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-20px) } }
           .grid-overlay { position: absolute; inset: 0; background: linear-gradient(transparent 95%, rgba(255,255,255,.05) 95%), linear-gradient(90deg, transparent 95%, rgba(255,255,255,.05) 95%); background-size: 28px 28px; mix-blend-mode: overlay; opacity: .25; }
@@ -1156,6 +1265,29 @@ export default function FaturamentoDashboard() {
   if (!session) {
     return null;
   }
+
+  // Função helper para formatar números com regra de casas decimais
+  const formatNumber = (value: number, suffix: string = '') => {
+    const absValue = Math.abs(value);
+    if (absValue < 5) {
+      return `${value.toFixed(1)}${suffix}`;
+    } else {
+      return `${Math.round(value)}${suffix}`;
+    }
+  };
+
+  // Função helper para formatar variações percentuais
+  const formatVariation = (value: number, isInteger: boolean = false) => {
+    const absValue = Math.abs(value);
+    if (isInteger) {
+      // Para números inteiros (como clientes únicos), sempre 0 casas decimais
+      return `${value >= 0 ? '+' : ''}${Math.round(value)}`;
+    } else if (absValue < 5) {
+      return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+    } else {
+      return `${value >= 0 ? '+' : ''}${Math.round(value)}%`;
+    }
+  };
 
   return (
     <>
@@ -1282,7 +1414,7 @@ export default function FaturamentoDashboard() {
                <div className="kpi-label">Faturamento do período</div>
                <div className="kpi-value">{formatK(kpis.faturamento.valor)}</div>
                <div className={`kpi-sub ${kpis.faturamento.variacao >= 0 ? 'pos' : 'neg'}`}>
-                 {kpis.faturamento.variacao >= 0 ? '+' : ''}{kpis.faturamento.variacao.toFixed(1)}% vs {kpis.compareLabel || 'mês anterior'}
+                 {formatVariation(kpis.faturamento.variacao)} vs {kpis.compareLabel || 'mês anterior'}
                </div>
                {kpis.showProjection && (
                  <div className="kpi-foot">Projeção: <strong>{formatK(kpis.faturamento.projecao)}</strong></div>
@@ -1290,37 +1422,60 @@ export default function FaturamentoDashboard() {
              </div>
              
              <div className="kpi">
-               <div className="kpi-label">Pedidos</div>
-               <div className="kpi-value">{kpis.pedidos.valor.toLocaleString('pt-BR')}</div>
-               <div className={`kpi-sub ${kpis.pedidos.variacao >= 0 ? 'pos' : 'neg'}`}>
-                 {kpis.pedidos.variacao >= 0 ? '+' : ''}{kpis.pedidos.variacao.toFixed(1)}% vs {kpis.compareLabel || 'mês anterior'}
+               <div className="kpi-label">Margem bruta</div>
+               <div className="kpi-value">{formatNumber(kpis.margemBruta.valor, '%')}</div>
+               <div className={`kpi-sub ${kpis.margemBruta.variacao >= 0 ? 'pos' : 'neg'}`}>
+                 {formatVariation(kpis.margemBruta.variacao)} vs {kpis.compareLabel || 'mês anterior'}
                </div>
-               {kpis.showProjection && (
-                 <div className="kpi-foot">Projeção: <strong>{Math.round(kpis.pedidos.projecao).toLocaleString('pt-BR')}</strong></div>
-               )}
              </div>
              
              <div className="kpi">
-               <div className="kpi-label">Ticket médio</div>
-               <div className="kpi-value">{formatK(kpis.ticketMedio.valor)}</div>
-               <div className={`kpi-sub ${kpis.ticketMedio.variacao >= 0 ? 'pos' : 'neg'}`}>
-                 {kpis.ticketMedio.variacao >= 0 ? '+' : ''}{kpis.ticketMedio.variacao.toFixed(1)}% vs {kpis.compareLabel || 'mês anterior'}
+               <div className="kpi-label">Pedidos</div>
+               <div className="kpi-value">
+                 <div className="kpi-main-row">
+                   <span className="kpi-main-value">{kpis.pedidos.valor.toLocaleString('pt-BR')}</span>
+                   <span className={`kpi-variation-inline ${kpis.pedidos.variacao >= 0 ? 'pos' : 'neg'}`}>
+                     {formatVariation(kpis.pedidos.variacao)}
+                   </span>
+                 </div>
+                 <div className="kpi-secondary-row">
+                   <span className="kpi-secondary-value">{kpis.clientesUnicos.valor.toLocaleString('pt-BR')} clientes</span>
+                                     <span className={`kpi-variation-inline ${kpis.clientesUnicos.variacao >= 0 ? 'pos' : 'neg'}`}>
+                    {formatVariation(kpis.clientesUnicos.variacao, true)}
+                  </span>
+                 </div>
                </div>
              </div>
-
+             
              <div className="kpi">
-               <div className="kpi-label">Clientes únicos</div>
-               <div className="kpi-value">{kpis.clientesUnicos.valor.toLocaleString('pt-BR')}</div>
-               <div className={`kpi-sub ${kpis.clientesUnicos.variacao >= 0 ? 'pos' : 'neg'}`}>
-                 {kpis.clientesUnicos.variacao >= 0 ? '+' : ''}{kpis.clientesUnicos.variacao.toFixed(1)}% vs {kpis.compareLabel || 'mês anterior'}
+               <div className="kpi-label">Caixas</div>
+               <div className="kpi-value">
+                 <div className="kpi-main-row">
+                   <span className="kpi-main-value">{formatK(kpis.caixas.valor)}</span>
+                   <span className={`kpi-variation-inline ${kpis.caixas.variacao >= 0 ? 'pos' : 'neg'}`}>
+                     {formatVariation(kpis.caixas.variacao)}
+                   </span>
+                 </div>
+                 <div className="kpi-secondary-row">
+                   <span className="kpi-secondary-value">{formatK(kpis.pacotes.valor)} pacotes</span>
+                   <span className={`kpi-variation-inline ${kpis.pacotes.variacao >= 0 ? 'pos' : 'neg'}`}>
+                     {formatVariation(kpis.pacotes.variacao)}
+                   </span>
+                 </div>
+                 <div className="kpi-secondary-row" style={{marginTop: '8px'}}>
+                   <span className="kpi-secondary-value">{formatK(kpis.unidades.valor)} pães</span>
+                   <span className={`kpi-variation-inline ${kpis.unidades.variacao >= 0 ? 'pos' : 'neg'}`}>
+                     {formatVariation(kpis.unidades.variacao)}
+                   </span>
+                 </div>
                </div>
              </div>
-           
+             
              <div className="kpi">
                <div className="kpi-label">Faturamento {new Date().getFullYear()}</div>
                <div className="kpi-value">{formatK(kpis.faturamentoAnual.valor)}</div>
                <div className={`kpi-sub ${kpis.faturamentoAnual.variacao >= 0 ? 'pos' : 'neg'}`}>
-                 {kpis.faturamentoAnual.variacao >= 0 ? '+' : ''}{kpis.faturamentoAnual.variacao.toFixed(1)}% vs {new Date().getFullYear() - 1}
+                 {formatVariation(kpis.faturamentoAnual.variacao)} vs {new Date().getFullYear() - 1}
                </div>
                <div className="kpi-foot">Projeção: <strong>{formatK(kpis.faturamentoAnual.projecao)}</strong></div>
              </div>
@@ -1330,13 +1485,15 @@ export default function FaturamentoDashboard() {
         {/* Gráficos */}
         <section className="charts">
           <div className="card">
-            <h3>Faturamento por semanas (últimas 8)</h3>
+            <h3>Faturamento por semana (últimas 8)</h3>
+			<p><small>Clique nas barras para filtrar o período</small></p>
             <div style={{height: '300px', position: 'relative', overflow: 'hidden'}}>
               <canvas id="chart-semanas" height="300"></canvas>
             </div>
           </div>
           <div className="card">
             <h3>Top clientes</h3>
+			<p><small>Clique no gráfico para filtrar por cliente</small></p>
             <div className="topcli">
               <div className="chart-donut">
                 <canvas id="chart-clientes"></canvas>
@@ -1432,7 +1589,8 @@ export default function FaturamentoDashboard() {
                     >
                       <span className="dot" style={{backgroundColor: cliente.cor}}></span>
                       <span>{cliente.cliente}</span>
-                      <span>{formatK(cliente.valor)} ({pct.toFixed(1)}%)</span>
+                      <span>{Math.round(cliente.valor / 1000)}k ({pct.toFixed(0)}%)</span>
+                      <span className="margem-bruta">MB: {cliente.margemBruta}%</span>
                     </li>
                   );
                 })}
@@ -1512,16 +1670,27 @@ export default function FaturamentoDashboard() {
                     <th>Data</th>
                     <th>Cliente</th>
                     <th>Valor</th>
+                    <th>Margem Bruta</th>
+                    <th>Unidades</th>
+                    <th>Pacotes</th>
+                    <th>Caixas</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {salesData.slice(0, 50).map((row, index) => (
-                    <tr key={index}>
-                      <td>{row.data.toLocaleDateString('pt-BR')}</td>
-                      <td>{row.cliente}</td>
-                      <td className="amount">{formatValue(row.valor)}</td>
-                    </tr>
-                  ))}
+                  {salesData.slice(0, 50).map((row, index) => {
+                    const margemBruta = row.cmv > 0 ? ((1 - row.cmv / row.valor) * 100) : 0;
+                    return (
+                      <tr key={index}>
+                        <td>{row.data.toLocaleDateString('pt-BR')}</td>
+                        <td>{row.cliente}</td>
+                        <td className="amount">{formatValue(row.valor)}</td>
+                        <td className="amount">{margemBruta.toFixed(1)}%</td>
+                        <td className="amount">{row.unidades ? formatK(row.unidades) : '-'}</td>
+                        <td className="amount">{row.pacotes ? formatK(row.pacotes) : '-'}</td>
+                        <td className="amount">{row.caixas ? formatK(row.caixas) : '-'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
         </div>
@@ -1594,7 +1763,7 @@ export default function FaturamentoDashboard() {
 
         .bg-animations { position: fixed; inset: 0; overflow: hidden; z-index: -1; }
         .orb { position: absolute; width: 520px; height: 520px; filter: blur(82px); opacity: .4; border-radius: 50%; animation: float 20s ease-in-out infinite; }
-        .orb-a { background: radial-gradient(circle at 30% 30%, #7bb0ff, transparent 60%); top: -120px; left: -80px; }
+        .orb-a { background: radial-gradient(circle at 30% 30%, #1E88E5, transparent 60%); top: -120px; left: -80px; }
         .orb-b { background: radial-gradient(circle at 70% 70%, #00d3a7, transparent 60%); bottom: -140px; right: -120px; animation-delay: -6s; }
         @keyframes float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-20px) } }
         .grid-overlay { position: absolute; inset: 0; background: linear-gradient(transparent 95%, rgba(255,255,255,.05) 95%), linear-gradient(90deg, transparent 95%, rgba(255,255,255,.05) 95%); background-size: 28px 28px; mix-blend-mode: overlay; opacity: .25; }
@@ -1619,12 +1788,24 @@ export default function FaturamentoDashboard() {
           background: var(--panel); border: 1px solid var(--panel-border); border-radius: 16px; padding: 18px; 
           box-shadow: 0 8px 24px rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.06); backdrop-filter: blur(8px); 
         }
-        .kpi-label { color: var(--muted); font-size: 12px; }
+        .kpi-label { color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         .kpi-value { font-size: 28px; margin-top: 8px; font-weight: 800; letter-spacing: .2px; }
-        .kpi-sub { color: var(--muted); margin-top: 4px; font-weight: 600; }
-        .kpi-foot { color: var(--muted); margin-top: 8px; font-size: 12px; }
+        .kpi-main-value { font-size: 32px; font-weight: 900; color: var(--text); }
+        .kpi-secondary-value { font-size: 16px; color: var(--muted); font-weight: 500; }
+        .kpi-main-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .kpi-secondary-row { display: flex; justify-content: space-between; align-items: center; }
+        .kpi-variation-inline { font-size: 14px; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
+        .kpi-variation-inline.pos { color: #00d3a7; background: rgba(0, 211, 167, 0.15); }
+        .kpi-variation-inline.neg { color: #ff6b6b; background: rgba(255, 107, 107, 0.15); }
+        .kpi-sub { color: var(--muted); margin-top: 8px; font-weight: 600; }
+        .kpi-variations { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+        .kpi-variation { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,.03); }
+        .kpi-variation-label { color: var(--muted); font-weight: 500; }
+        .kpi-foot { color: var(--muted); margin-top: 12px; font-size: 11px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.1); }
         .kpi-sub.neg { color: #ff6b6b; }
         .kpi-sub.pos { color: #00d3a7; }
+        .kpi-variation.neg { color: #ff6b6b; background: rgba(255, 107, 107, 0.1); }
+        .kpi-variation.pos { color: #00d3a7; background: rgba(0, 211, 167, 0.1); }
 
         .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
         .span-2 { grid-column: span 2; }
@@ -1650,6 +1831,15 @@ export default function FaturamentoDashboard() {
           padding: 6px 8px; border-radius: 10px; cursor: pointer; 
         }
         .topcli-legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .topcli-legend .margem-bruta { 
+          color: var(--accent-2); 
+          font-weight: 600; 
+          font-size: 11px; 
+          background: rgba(244, 194, 122, 0.1); 
+          padding: 2px 6px; 
+          border-radius: 4px; 
+          margin-left: auto; 
+        }
 
         .rank { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
         .rank li { 
@@ -1796,6 +1986,35 @@ export default function FaturamentoDashboard() {
         @media (max-width: 640px) { 
           .chart-donut { height: 160px; } 
           .table-wrap .table-scroll { min-height: 220px; }
+        
+        /* Estilos para tabela expandida */
+        .table-scroll table { 
+          width: 100%; 
+          border-collapse: collapse; 
+          font-size: 13px; 
+        }
+        .table-scroll th { 
+          background: rgba(255,255,255,.03); 
+          padding: 12px 8px; 
+          text-align: left; 
+          font-weight: 600; 
+          color: var(--muted); 
+          border-bottom: 1px solid rgba(255,255,255,.08); 
+          white-space: nowrap; 
+        }
+        .table-scroll td { 
+          padding: 10px 8px; 
+          border-bottom: 1px solid rgba(255,255,255,.04); 
+          color: var(--text); 
+        }
+        .table-scroll .amount { 
+          text-align: right; 
+          font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; 
+          font-weight: 500; 
+        }
+        .table-scroll tr:hover { 
+          background: rgba(255,255,255,.02); 
+        }
           .period-panel { width: 280px; right: 0; }
         }
       `}</style>

@@ -5,10 +5,38 @@ export interface SheetRow {
   data: Date;
   cliente: string;
   valor: number;
+  cmv: number;
+  unidades?: number;
+  pacotes?: number;
+  caixas?: number;
+}
+
+// Vendas por produto
+export interface ProductSaleRow {
+  nfValida: boolean;
+  data: Date;
+  cliente: string;
+  produto: string;
+  quantidade?: number | null;
+  valorTotal: number;
+  precoUnitario?: number | null;
+  custoUnitario?: number | null;
+  custoTotal?: number | null;
+  margemValor?: number | null;
+  margemPercent?: number | null;
 }
 
 // Função para buscar dados da API (servidor) para um dashboard específico
-export async function fetchSheetData(dashboard: string = 'faturamento'): Promise<SheetRow[]> {
+export async function fetchSheetData(
+  dashboard: 'faturamento'
+): Promise<SheetRow[]>;
+export async function fetchSheetData(
+  dashboard: 'vendas'
+): Promise<ProductSaleRow[]>;
+export async function fetchSheetData(
+  dashboard?: string
+): Promise<(SheetRow | ProductSaleRow)[]>;
+export async function fetchSheetData(dashboard: string = 'faturamento') {
   try {
     const response = await fetch(`/api/sheets/${dashboard}`);
     
@@ -63,10 +91,10 @@ function normalizeRows(values: string[][]): SheetRow[] {
 
   for (const row of values) {
     try {
-      // Verificar se a linha tem dados suficientes
-      if (row.length < 5) continue;
+      // Verificar se a linha tem dados suficientes (agora precisa de 6 colunas: M-V)
+      if (row.length < 6) continue;
 
-      const [nfValidaRaw, anoMesRaw, dataRaw, clienteRaw, valorRaw] = row;
+      const [nfValidaRaw, anoMesRaw, dataRaw, clienteRaw, valorRaw, cmvRaw] = row;
 
       // Filtrar apenas NF Válida = TRUE
       const nfValida = String(nfValidaRaw).toUpperCase() === 'TRUE';
@@ -80,6 +108,10 @@ function normalizeRows(values: string[][]): SheetRow[] {
       const valor = parseValueBR(valorRaw);
       if (isNaN(valor)) continue;
 
+      // Parse do CMV (formato brasileiro: 1.234,56)
+      const cmv = parseValueBR(cmvRaw);
+      if (isNaN(cmv)) continue;
+
       // Cliente
       const cliente = String(clienteRaw).trim();
       if (!cliente) continue;
@@ -90,6 +122,7 @@ function normalizeRows(values: string[][]): SheetRow[] {
         data,
         cliente,
         valor,
+        cmv,
       });
     } catch (error) {
       console.warn('Erro ao processar linha:', row, error);
@@ -187,6 +220,10 @@ export function generateDemoData(): SheetRow[] {
         data: new Date(data),
         cliente,
         valor,
+        cmv: valor * (0.6 + Math.random() * 0.2), // CMV entre 60% e 80% do valor
+        unidades: Math.floor(Math.random() * 1000) + 100, // Entre 100 e 1100 unidades
+        pacotes: Math.floor(Math.random() * 100) + 10, // Entre 10 e 110 pacotes
+        caixas: Math.floor(Math.random() * 20) + 2, // Entre 2 e 22 caixas
       });
     }
   }

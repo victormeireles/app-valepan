@@ -1,13 +1,19 @@
-import { auth } from "@/auth";
+"use client";
+
+import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 
-export default async function ProducaoDashboard() {
-  const session = await auth();
+export default function ProducaoDashboard() {
+  const { data: session, status } = useSession();
   
-  if (!session) {
+  if (status === 'unauthenticated') {
     redirect("/login");
+  }
+  
+  if (status === 'loading') {
+    return <div>Carregando...</div>;
   }
 
   return (
@@ -27,10 +33,10 @@ export default async function ProducaoDashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
-                {session.user?.name}
+                {session?.user?.name}
               </div>
               <Image 
-                src={session.user?.image || ""} 
+                src={session?.user?.image || ""} 
                 alt="Avatar" 
                 width={32}
                 height={32}

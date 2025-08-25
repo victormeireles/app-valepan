@@ -10,9 +10,15 @@ export interface SheetConfig {
 export const SHEET_CONFIGS: Record<string, SheetConfig> = {
   faturamento: {
     spreadsheetId: '1Wy43sOqHVKPTx7U634U9kYRDeANE-61kxpQm4-Bg9Xo',
-    range: 'M:Q',
+    range: 'M:V',
     name: 'Faturamento',
-    description: 'Dados de faturamento e vendas'
+    description: 'Dados de faturamento e vendas com CMV'
+  },
+  vendas: {
+    spreadsheetId: '1_xlm8YzBpG7a3LN3lBN6snbIYxJxMefvPPZxsx7vCaM',
+    range: 'Base!S:AB',
+    name: 'Vendas por Produto',
+    description: 'Vendas detalhadas por produto/cliente (NF válida = TRUE)'
   },
   // Adicionar outras planilhas conforme necessário
   // vendas: {

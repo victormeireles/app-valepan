@@ -9,7 +9,26 @@ interface SheetRow {
   data: Date;
   cliente: string;
   valor: number;
+  cmv: number;
+  unidades?: number;
+  pacotes?: number;
+  caixas?: number;
 }
+
+// Tipo para vendas por produto (estrutura flexível)
+type ProductSaleRow = {
+  nfValida: boolean;
+  data: Date;
+  cliente: string;
+  produto: string;
+  quantidade?: number | null;
+  valorTotal: number; // faturamento da linha
+  precoUnitario?: number | null;
+  custoUnitario?: number | null;
+  custoTotal?: number | null;
+  margemValor?: number | null;
+  margemPercent?: number | null;
+};
 
 // Função para autenticar com Google Sheets usando as credenciais do NextAuth
 async function getGoogleSheetsClient() {
@@ -27,16 +46,44 @@ async function getGoogleSheetsClient() {
   return google.sheets({ version: 'v4', auth: authClient });
 }
 
-// Função para normalizar os dados da planilha
+// Função para normalizar os dados da planilha (faturamento atual)
 function normalizeRows(values: string[][]): SheetRow[] {
   const normalizedRows: SheetRow[] = [];
 
   for (const row of values) {
     try {
-      // Verificar se a linha tem dados suficientes
-      if (row.length < 5) continue;
+      // Verificar se a linha tem dados suficientes (precisa de 10 colunas: M-V)
+      if (row.length < 10) continue;
 
-      const [nfValidaRaw, anoMesRaw, dataRaw, clienteRaw, valorRaw] = row;
+      // Pegar as colunas corretas: M, N, O, P, Q, V (CMV está na coluna V, 10ª posição)
+      const nfValidaRaw = row[0];  // M - NF Válida
+      const anoMesRaw = row[1];     // N - AnoMês
+      const dataRaw = row[2];       // O - Data
+      const clienteRaw = row[3];    // P - Cliente
+      const valorRaw = row[4];      // Q - Valor
+      const cmvRaw = row[9];        // V - CMV (10ª coluna, índice 9)
+      
+      // Novas colunas: S (Unidades), T (Pacotes), U (Caixas)
+      const unidadesRaw = row[6];   // S - Unidades (7ª coluna, índice 6)
+      const pacotesRaw = row[7];    // T - Pacotes (8ª coluna, índice 7)
+      const caixasRaw = row[8];     // U - Caixas (9ª coluna, índice 8)
+
+      // Debug: log dos valores brutos para as primeiras linhas
+      if (normalizedRows.length < 3) {
+        console.log(`[DEBUG] Linha ${normalizedRows.length + 1} - Valores brutos:`, {
+          nfValida: nfValidaRaw,
+          anoMes: anoMesRaw,
+          data: dataRaw,
+          cliente: clienteRaw,
+          valor: valorRaw,
+          cmv: cmvRaw,
+          unidades: unidadesRaw,
+          pacotes: pacotesRaw,
+          caixas: caixasRaw,
+          'row.length': row.length,
+          'todas_colunas': row
+        });
+      }
 
       // Filtrar apenas NF Válida = TRUE
       const nfValida = String(nfValidaRaw).toUpperCase() === 'TRUE';
@@ -50,6 +97,13 @@ function normalizeRows(values: string[][]): SheetRow[] {
       const valor = parseValueBR(valorRaw);
       if (isNaN(valor)) continue;
 
+      // Parse do CMV (formato brasileiro: 1.234,56)
+      const cmv = parseValueBR(cmvRaw);
+      if (isNaN(cmv)) {
+        console.log(`Debug - CMV inválido na linha:`, { cmvRaw, valor: valorRaw, cliente: clienteRaw });
+        continue;
+      }
+
       // Cliente
       const cliente = String(clienteRaw).trim();
       if (!cliente) continue;
@@ -60,6 +114,10 @@ function normalizeRows(values: string[][]): SheetRow[] {
         data,
         cliente,
         valor,
+        cmv,
+        unidades: parseValueBR(unidadesRaw) || 0,
+        pacotes: parseValueBR(pacotesRaw) || 0,
+        caixas: parseValueBR(caixasRaw) || 0,
       });
     } catch (error) {
       console.warn('Erro ao processar linha:', row, error);
@@ -68,6 +126,148 @@ function normalizeRows(values: string[][]): SheetRow[] {
   }
 
   return normalizedRows;
+}
+
+// Utilidade: normalizar nome do cabeçalho (minúsculo, sem acentos)
+function normalizeHeaderName(name: string): string {
+  return String(name || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
+// Função para normalizar dados para 'vendas' com base no cabeçalho
+function normalizeRowsVendas(valuesWithHeader: string[][]): ProductSaleRow[] {
+  if (!valuesWithHeader.length) return [];
+  const [header, ...rows] = valuesWithHeader;
+  const headerMap = new Map<string, number>();
+  header.forEach((h, i) => headerMap.set(normalizeHeaderName(h), i));
+
+  // Encontrar índices prováveis
+  const idx = (cands: string[]): number | undefined => {
+    for (const c of cands) {
+      const found = headerMap.get(c);
+      if (found !== undefined) return found;
+    }
+    // procurar por includes
+    const keys = Array.from(headerMap.keys());
+    for (const c of cands) {
+      const k = keys.find(k => k.includes(c));
+      if (k) return headerMap.get(k);
+    }
+    return undefined;
+  };
+
+  const nfIdx = idx(['nf valida', 'nf valida?', 'nfvalida', 'valida']);
+  const dataIdx = idx(['data', 'emissao', 'emissao nf', 'dt']);
+  const clienteIdx = idx(['cliente', 'razao social', 'cliente nome']);
+  const produtoIdx = idx(['produto', 'item', 'descricao', 'descricao produto']);
+  const qtdIdx = idx(['quantidade', 'qtd', 'qtde']);
+  const precoUnitIdx = idx(['preco unitario', 'preco un', 'valor unitario']);
+  const valorTotalIdx = idx(['valor total', 'valor', 'total', 'preco total']);
+  const custoUnitIdx = idx(['custo unitario', 'custo un']);
+  const custoTotalIdx = idx(['custo total', 'custo', 'cmv']);
+  const margemValorIdx = idx(['margem', 'margem valor']);
+  const margemPercentIdx = idx(['margem %', 'margem percentual', 'margem % total', 'margem percent']);
+
+  // Debug: log do mapeamento das colunas
+  console.log(`[DEBUG Vendas] Header original:`, header);
+  console.log(`[DEBUG Vendas] Header normalizado:`, Array.from(headerMap.keys()));
+  console.log(`[DEBUG Vendas] Índices encontrados:`, {
+    nfIdx, dataIdx, clienteIdx, produtoIdx, qtdIdx, 
+    precoUnitIdx, valorTotalIdx, custoUnitIdx, custoTotalIdx, 
+    margemValorIdx, margemPercentIdx
+  });
+
+  const out: ProductSaleRow[] = [];
+
+  for (const row of rows) {
+    try {
+      // NF válida
+      const nfValRaw = nfIdx !== undefined ? row[nfIdx] : undefined;
+      const nfValida = String(nfValRaw).toUpperCase() === 'TRUE';
+      if (!nfValida) continue;
+
+      // Data
+      const data = dataIdx !== undefined ? parseDate(String(row[dataIdx])) : null;
+      if (!data) continue;
+
+      // Cliente
+      const cliente = clienteIdx !== undefined ? String(row[clienteIdx]).trim() : '';
+      if (!cliente) continue;
+
+      // Produto
+      const produto = produtoIdx !== undefined ? String(row[produtoIdx]).trim() : '';
+      if (!produto) continue;
+
+      // Quantidade
+      const quantidade = qtdIdx !== undefined ? Number(parseValueBR(String(row[qtdIdx]))) : NaN;
+      const safeQtd = isNaN(quantidade) ? null : quantidade;
+
+      // Preço unitário e valor total
+      const precoUnitario = precoUnitIdx !== undefined ? Number(parseValueBR(String(row[precoUnitIdx]))) : NaN;
+      const safePrecoUnit = isNaN(precoUnitario) ? null : precoUnitario;
+      const valorTotal = valorTotalIdx !== undefined ? Number(parseValueBR(String(row[valorTotalIdx]))) : NaN;
+
+      // Custo unitário e total
+      const custoUnitario = custoUnitIdx !== undefined ? Number(parseValueBR(String(row[custoUnitIdx]))) : NaN;
+      const safeCustoUnit = isNaN(custoUnitario) ? null : custoUnitario;
+      const custoTotal = custoTotalIdx !== undefined ? Number(parseValueBR(String(row[custoTotalIdx]))) : NaN;
+      const safeCustoTotal = isNaN(custoTotal) ? null : custoTotal;
+
+      // Derivados
+      const derivedValorTotal = !isNaN(valorTotal)
+        ? valorTotal
+        : safeQtd !== null && safePrecoUnit !== null
+          ? safeQtd * safePrecoUnit
+          : 0;
+
+      const derivedCustoTotal = safeCustoTotal !== null && !isNaN(safeCustoTotal)
+        ? safeCustoTotal
+        : safeQtd !== null && safeCustoUnit !== null
+          ? safeQtd * safeCustoUnit
+          : null;
+
+      // Margem
+      let margemValor: number | null = null;
+      let margemPercent: number | null = null;
+
+      const margemValorRaw = margemValorIdx !== undefined ? Number(parseValueBR(String(row[margemValorIdx]))) : NaN;
+      const margemPercentRaw = margemPercentIdx !== undefined ? Number(parseValueBR(String(row[margemPercentIdx]))) : NaN;
+
+      if (!isNaN(margemValorRaw)) {
+        margemValor = margemValorRaw;
+      } else if (derivedCustoTotal !== null) {
+        margemValor = derivedValorTotal - derivedCustoTotal;
+      }
+
+      if (!isNaN(margemPercentRaw)) {
+        margemPercent = margemPercentRaw / (margemPercentRaw > 1.5 ? 100 : 1); // aceita 35 ou 0.35
+      } else if (derivedValorTotal > 0 && margemValor !== null) {
+        margemPercent = margemValor / derivedValorTotal;
+      }
+
+      out.push({
+        nfValida,
+        data,
+        cliente,
+        produto,
+        quantidade: safeQtd,
+        valorTotal: derivedValorTotal,
+        precoUnitario: safePrecoUnit,
+        custoUnitario: safeCustoUnit,
+        custoTotal: derivedCustoTotal,
+        margemValor,
+        margemPercent,
+      });
+    } catch {
+      // ignora linha problemática
+      continue;
+    }
+  }
+
+  return out;
 }
 
 // Função para fazer parse de data no formato dd/mm/aaaa
@@ -111,7 +311,7 @@ function parseValueBR(valueStr: string): number {
 }
 
 // Cache para dados (evita requisições desnecessárias)
-const cache = new Map<string, { data: SheetRow[]; timestamp: number }>();
+const cache = new Map<string, { data: (SheetRow | ProductSaleRow)[]; timestamp: number }>();
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutos
 
 
@@ -170,14 +370,33 @@ export async function GET(
       return NextResponse.json([]);
     }
 
-    // Pular a primeira linha (cabeçalho)
-    const dataRows = values.slice(1);
-    const normalizedData = normalizeRows(dataRows);
+    let normalizedData: (SheetRow | ProductSaleRow)[] = [];
+    if (dashboard === 'vendas') {
+      // Para 'vendas', usaremos o cabeçalho para mapear as colunas
+      normalizedData = normalizeRowsVendas(values);
+    } else {
+      // Padrão (faturamento existente): ignora cabeçalho e usa posições fixas
+      const dataRows = values.slice(1);
+      normalizedData = normalizeRows(dataRows);
+    }
     
-    console.log(`✅ Dados reais da planilha carregados para ${dashboard}:`, {
-      totalRows: values.length,
-      validRows: normalizedData.length
-    });
+    // Log específico por dashboard para evitar problemas de tipo
+    if (dashboard === 'faturamento') {
+      const faturamentoData = normalizedData as SheetRow[];
+      console.log(`✅ Dados reais da planilha carregados para ${dashboard}:`, {
+        totalRows: values.length,
+        validRows: normalizedData.length,
+        somaValores: faturamentoData.reduce((sum, row) => sum + (row.valor || 0), 0),
+        somaCMV: faturamentoData.reduce((sum, row) => sum + (row.cmv || 0), 0),
+        primeiraLinha: faturamentoData[0],
+        ultimaLinha: faturamentoData[faturamentoData.length - 1]
+      });
+    } else {
+      console.log(`✅ Dados reais da planilha carregados para ${dashboard}:`, {
+        totalRows: values.length,
+        validRows: normalizedData.length
+      });
+    }
 
     // Atualizar cache
     cache.set(cacheKey, { data: normalizedData, timestamp: Date.now() });
