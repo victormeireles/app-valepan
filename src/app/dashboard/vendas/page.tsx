@@ -1943,7 +1943,7 @@ export default function VendasDashboard() {
 
       <main className="container">
         {/* estado de modo do drilldown */}
-        {/* @ts-ignore - criado dinamicamente abaixo */}
+        {/* @ts-expect-error - criado dinamicamente abaixo */}
         
         {/* KPIs */}
          {kpis && (

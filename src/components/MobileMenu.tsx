@@ -94,7 +94,7 @@ export default function MobileMenu() {
         </div>
 
         <nav className="mobile-nav">
-          {nav.map((item, index) => {
+          {nav.map((item) => {
             const isActive = item.href ? pathname === item.href : false;
             const isLogout = item.label === 'Logout';
 
