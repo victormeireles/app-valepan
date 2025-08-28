@@ -19,9 +19,12 @@ interface SheetRow {
 type ProductSaleRow = {
   nfValida: boolean;
   data: Date;
+  pedido?: string | null;
   cliente: string;
   produto: string;
   quantidade?: number | null;
+  pacotes?: number | null;
+  caixas?: number | null;
   valorTotal: number; // faturamento da linha
   precoUnitario?: number | null;
   custoUnitario?: number | null;
