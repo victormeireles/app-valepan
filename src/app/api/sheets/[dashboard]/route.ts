@@ -161,13 +161,16 @@ function normalizeRowsVendas(valuesWithHeader: string[][]): ProductSaleRow[] {
 
   const nfIdx = idx(['nf valida', 'nf valida?', 'nfvalida', 'valida']);
   const dataIdx = idx(['data', 'emissao', 'emissao nf', 'dt']);
+  const pedidoIdx = idx(['pedido', 'numero pedido', 'num pedido', 'pedido num', 'order']);
   const clienteIdx = idx(['cliente', 'razao social', 'cliente nome']);
   const produtoIdx = idx(['produto', 'item', 'descricao', 'descricao produto']);
-  const qtdIdx = idx(['quantidade', 'qtd', 'qtde']);
+  const qtdIdx = idx(['quantidade', 'unidades', 'qtd', 'qtde', 'qty', 'qnt', 'qntd', 'quant', 'q']);
+  const pacotesIdx = idx(['pacotes', 'pcts', 'packages']);
+  const caixasIdx = idx(['caixas', 'cx', 'boxes']);
   const precoUnitIdx = idx(['preco unitario', 'preco un', 'valor unitario']);
-  const valorTotalIdx = idx(['valor total', 'valor', 'total', 'preco total']);
+  const valorTotalIdx = idx(['valor total', 'valor', 'total', 'preco total', 'preco']);
   const custoUnitIdx = idx(['custo unitario', 'custo un']);
-  const custoTotalIdx = idx(['custo total', 'custo', 'cmv']);
+  const custoTotalIdx = idx(['custo total', 'custo', 'cmv', 'custo total']);
   const margemValorIdx = idx(['margem', 'margem valor']);
   const margemPercentIdx = idx(['margem %', 'margem percentual', 'margem % total', 'margem percent']);
 
@@ -175,9 +178,40 @@ function normalizeRowsVendas(valuesWithHeader: string[][]): ProductSaleRow[] {
   console.log(`[DEBUG Vendas] Header original:`, header);
   console.log(`[DEBUG Vendas] Header normalizado:`, Array.from(headerMap.keys()));
   console.log(`[DEBUG Vendas] Índices encontrados:`, {
-    nfIdx, dataIdx, clienteIdx, produtoIdx, qtdIdx, 
+    nfIdx, dataIdx, pedidoIdx, clienteIdx, produtoIdx, qtdIdx, pacotesIdx, caixasIdx,
     precoUnitIdx, valorTotalIdx, custoUnitIdx, custoTotalIdx, 
     margemValorIdx, margemPercentIdx
+  });
+  
+  // Debug adicional para quantidade
+  if (qtdIdx === undefined) {
+    console.log(`[DEBUG Vendas] ❌ Coluna de quantidade NÃO encontrada!`);
+    console.log(`[DEBUG Vendas] Tentando encontrar colunas similares...`);
+    const allKeys = Array.from(headerMap.keys());
+    const similarKeys = allKeys.filter(key => 
+      key.toLowerCase().includes('q') || 
+      key.toLowerCase().includes('quant') || 
+      key.toLowerCase().includes('qtd') ||
+      key.toLowerCase().includes('qty') ||
+      key.toLowerCase().includes('unidades')
+    );
+    console.log(`[DEBUG Vendas] Colunas similares encontradas:`, similarKeys);
+  } else {
+    console.log(`[DEBUG Vendas] ✅ Coluna de quantidade encontrada no índice ${qtdIdx}: "${header[qtdIdx]}"`);
+  }
+  
+  // Debug para todas as colunas
+  console.log(`[DEBUG Vendas] Mapeamento completo:`, {
+    nf: header[nfIdx || 0],
+    data: header[dataIdx || 0],
+    pedido: header[pedidoIdx || 0],
+    cliente: header[clienteIdx || 0],
+    produto: header[produtoIdx || 0],
+    quantidade: header[qtdIdx || 0],
+    pacotes: header[pacotesIdx || 0],
+    caixas: header[caixasIdx || 0],
+    valor: header[valorTotalIdx || 0],
+    cmv: header[custoTotalIdx || 0]
   });
 
   const out: ProductSaleRow[] = [];
@@ -192,6 +226,21 @@ function normalizeRowsVendas(valuesWithHeader: string[][]): ProductSaleRow[] {
       // Data
       const data = dataIdx !== undefined ? parseDate(String(row[dataIdx])) : null;
       if (!data) continue;
+      
+      // Pedido
+      const pedido = pedidoIdx !== undefined ? String(row[pedidoIdx]).trim() : null;
+      
+      // Debug: log da primeira linha para verificar dados
+      if (out.length === 0) {
+        console.log(`[DEBUG Vendas] Primeira linha processada:`, {
+          rawData: dataIdx !== undefined ? row[dataIdx] : 'N/A',
+          parsedData: data,
+          pedido: pedidoIdx !== undefined ? row[pedidoIdx] : 'N/A',
+          cliente: clienteIdx !== undefined ? row[clienteIdx] : 'N/A',
+          produto: produtoIdx !== undefined ? row[produtoIdx] : 'N/A',
+          quantidade: qtdIdx !== undefined ? row[qtdIdx] : 'N/A'
+        });
+      }
 
       // Cliente
       const cliente = clienteIdx !== undefined ? String(row[clienteIdx]).trim() : '';
@@ -204,6 +253,25 @@ function normalizeRowsVendas(valuesWithHeader: string[][]): ProductSaleRow[] {
       // Quantidade
       const quantidade = qtdIdx !== undefined ? Number(parseValueBR(String(row[qtdIdx]))) : NaN;
       const safeQtd = isNaN(quantidade) ? null : quantidade;
+      
+      // Pacotes
+      const pacotes = pacotesIdx !== undefined ? Number(parseValueBR(String(row[pacotesIdx]))) : NaN;
+      const safePacotes = isNaN(pacotes) ? null : pacotes;
+      
+      // Caixas
+      const caixas = caixasIdx !== undefined ? Number(parseValueBR(String(row[caixasIdx]))) : NaN;
+      const safeCaixas = isNaN(caixas) ? null : caixas;
+      
+      // Debug para quantidade
+      if (qtdIdx !== undefined) {
+        const rawQtd = row[qtdIdx];
+        console.log(`[DEBUG Vendas] Quantidade bruta: "${rawQtd}" -> Parseada: ${quantidade} -> Safe: ${safeQtd}`);
+      }
+      
+      // Debug para pacotes e caixas
+      if (out.length === 0) {
+        console.log(`[DEBUG Vendas] Pacotes: "${row[pacotesIdx || 0]}" -> ${safePacotes}, Caixas: "${row[caixasIdx || 0]}" -> ${safeCaixas}`);
+      }
 
       // Preço unitário e valor total
       const precoUnitario = precoUnitIdx !== undefined ? Number(parseValueBR(String(row[precoUnitIdx]))) : NaN;
@@ -251,9 +319,12 @@ function normalizeRowsVendas(valuesWithHeader: string[][]): ProductSaleRow[] {
       out.push({
         nfValida,
         data,
+        pedido,
         cliente,
         produto,
         quantidade: safeQtd,
+        pacotes: safePacotes,
+        caixas: safeCaixas,
         valorTotal: derivedValorTotal,
         precoUnitario: safePrecoUnit,
         custoUnitario: safeCustoUnit,
@@ -375,28 +446,15 @@ export async function GET(
       // Para 'vendas', usaremos o cabeçalho para mapear as colunas
       normalizedData = normalizeRowsVendas(values);
     } else {
-      // Padrão (faturamento existente): ignora cabeçalho e usa posições fixas
+      // Para outros dashboards, ignora cabeçalho e usa posições fixas
       const dataRows = values.slice(1);
       normalizedData = normalizeRows(dataRows);
     }
     
-    // Log específico por dashboard para evitar problemas de tipo
-    if (dashboard === 'faturamento') {
-      const faturamentoData = normalizedData as SheetRow[];
-      console.log(`✅ Dados reais da planilha carregados para ${dashboard}:`, {
-        totalRows: values.length,
-        validRows: normalizedData.length,
-        somaValores: faturamentoData.reduce((sum, row) => sum + (row.valor || 0), 0),
-        somaCMV: faturamentoData.reduce((sum, row) => sum + (row.cmv || 0), 0),
-        primeiraLinha: faturamentoData[0],
-        ultimaLinha: faturamentoData[faturamentoData.length - 1]
-      });
-    } else {
-      console.log(`✅ Dados reais da planilha carregados para ${dashboard}:`, {
-        totalRows: values.length,
-        validRows: normalizedData.length
-      });
-    }
+    console.log(`✅ Dados reais da planilha carregados para ${dashboard}:`, {
+      totalRows: values.length,
+      validRows: normalizedData.length
+    });
 
     // Atualizar cache
     cache.set(cacheKey, { data: normalizedData, timestamp: Date.now() });

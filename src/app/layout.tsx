@@ -19,6 +19,13 @@ export const metadata: Metadata = {
   description: "Dashboard operacional e gerencial para fábrica de pães",
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,6 +34,8 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
+        {/* Google Material Icons */}
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
         <style>{`
           /* Evitar FOUC - esconder conteúdo até CSS carregar */
           body {

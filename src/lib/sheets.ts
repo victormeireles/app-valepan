@@ -15,9 +15,12 @@ export interface SheetRow {
 export interface ProductSaleRow {
   nfValida: boolean;
   data: Date;
+  pedido?: string | null;
   cliente: string;
   produto: string;
   quantidade?: number | null;
+  pacotes?: number | null;
+  caixas?: number | null;
   valorTotal: number;
   precoUnitario?: number | null;
   custoUnitario?: number | null;
@@ -28,15 +31,12 @@ export interface ProductSaleRow {
 
 // Função para buscar dados da API (servidor) para um dashboard específico
 export async function fetchSheetData(
-  dashboard: 'faturamento'
-): Promise<SheetRow[]>;
-export async function fetchSheetData(
   dashboard: 'vendas'
 ): Promise<ProductSaleRow[]>;
 export async function fetchSheetData(
   dashboard?: string
 ): Promise<(SheetRow | ProductSaleRow)[]>;
-export async function fetchSheetData(dashboard: string = 'faturamento') {
+export async function fetchSheetData(dashboard: string = 'vendas') {
   try {
     const response = await fetch(`/api/sheets/${dashboard}`);
     

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
+import MobileMenu from "./MobileMenu";
 
 export default function ConditionalLayout({
   children,
@@ -19,20 +20,23 @@ export default function ConditionalLayout({
     }
   }, []);
   
-  // Páginas onde não queremos mostrar o sidebar
+  // Páginas onde não queremos mostrar a navegação
   const noSidebarPages = ["/login"];
   
-  const shouldShowSidebar = !noSidebarPages.includes(pathname);
+  const shouldShowNav = !noSidebarPages.includes(pathname);
 
-  if (shouldShowSidebar) {
+  if (shouldShowNav) {
     return (
       <div className="app-shell">
+        {/* Menu mobile (hamburger + drawer) - sempre presente, visível apenas em mobile via CSS */}
+        <MobileMenu />
+        {/* Sidebar (desktop) - oculto em mobile via CSS */}
         <Sidebar />
         <div className="app-content">{children}</div>
       </div>
     );
   }
 
-  // Para páginas sem sidebar (como login), renderiza diretamente o conteúdo
+  // Para páginas sem navegação (como login), renderiza diretamente o conteúdo
   return <>{children}</>;
 }

@@ -24,10 +24,9 @@ export default function Sidebar() {
 
   const nav: NavItem[] = [
     { href: "/", label: "Home", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></Icon> },
-    { href: "/dashboard/faturamento", label: "Faturamento", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></Icon> },
     { href: "/dashboard/vendas", label: "Vendas", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-1.99-2z"/></svg></Icon> },
     { href: "/dashboard/producao", label: "Produção", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></Icon> },
-    { label: "Logout", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg></Icon>, onClick: () => signOut({ callbackUrl: "/login" }) },
+    { label: "Logout", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.18 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg></Icon>, onClick: () => signOut({ callbackUrl: "/login" }) },
   ];
 
   return (
@@ -70,9 +69,9 @@ export default function Sidebar() {
             {/* Separador visual */}
             <div className="nav-separator" />
 
-            {/* Grupo 2: Dashboard (Faturamento, Vendas, Produção) */}
+            {/* Grupo 2: Dashboard (Vendas, Produção) */}
             <div className="nav-group">
-              {nav.slice(1, 4).map((item) => {
+              {nav.slice(1, 3).map((item) => {
                 const isActive = item.href ? pathname === item.href : false;
                 const content = (
                   <div className={`sb-item ${isActive ? "active" : ""}`}>
@@ -118,7 +117,7 @@ export default function Sidebar() {
           position: fixed;
           inset: 0 auto 0 0;
           width: ${"64px"};
-          z-index: 40;
+          z-index: 1000;
           transition: width .18s ease;
         }
         .sidebar:hover { width: 220px; }
@@ -126,7 +125,7 @@ export default function Sidebar() {
           height: 100%;
           backdrop-filter: blur(8px);
           background: linear-gradient(180deg, rgba(18,26,46,.82), rgba(18,26,46,.72));
-          border-right: 1px solid rgba(255,255,255,.06);
+          border-right: 1px solid rgba(255,255,255,.03);
           box-shadow: 0 8px 30px rgba(0,0,0,.35);
           padding: 14px 10px;
           display: flex;

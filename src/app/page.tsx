@@ -1,33 +1,103 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
-import Image from "next/image";
-import LogoutButton from "@/components/LogoutButton";
+'use client';
 
-export default async function Home() {
-  const session = await auth();
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { useState, useEffect } from 'react';
+
+export default function Home() {
+  const { data: session, status } = useSession();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      setLoading(false);
+    }
+  }, [status]);
+
+  if (status === 'unauthenticated') {
+    redirect('/login');
+  }
+
+  if (status === 'loading' || loading) {
+    return (
+      <>
+        <style jsx global>{`
+          body { 
+            overflow: hidden !important; 
+            background: #090c12 !important;
+          }
+          
+          .loading { 
+            position: fixed !important; 
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            display: flex !important; 
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: linear-gradient(180deg, #090c12 0%, #0f1420 60%, #090c12 100%) !important; 
+            backdrop-filter: blur(12px) !important; 
+            z-index: 9999 !important;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif !important;
+          }
+          .spinner { 
+            width: 54px !important; 
+            height: 54px !important; 
+            border-radius: 50% !important; 
+            border: 4px solid rgba(255,255,255,.15) !important; 
+            border-top-color: #e67e22 !important; 
+            animation: spin 1s linear infinite !important; 
+            margin-bottom: 12px !important;
+          }
+          .loading-text { 
+            margin-top: 12px !important; 
+            color: #c9cbd6 !important; 
+            font-weight: 600 !important; 
+            font-size: 14px !important;
+            text-align: center !important;
+          }
+          @keyframes spin { 
+            to { transform: rotate(360deg) } 
+          }
+          .bg-animations { position: fixed; inset: 0; overflow: hidden; z-index: -1; }
+          .orb { position: absolute; width: 520px; height: 520px; filter: blur(82px); opacity: .4; border-radius: 50%; animation: float 20s ease-in-out infinite; }
+          .orb-a { background: radial-gradient(circle at 30% 30%, #1E88E5, transparent 60%); top: -120px; left: -80px; }
+          .orb-b { background: radial-gradient(circle at 70% 70%, #00d3a7, transparent 60%); bottom: -140px; right: -120px; animation-delay: -6s; }
+          @keyframes float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-20px) } }
+          .grid-overlay { position: absolute; inset: 0; background: linear-gradient(transparent 95%, rgba(255,255,255,.05) 95%), linear-gradient(90deg, transparent 95%, rgba(255,255,255,.05) 95%); background-size: 28px 28px; mix-blend-mode: overlay; opacity: .25; }
+        `}</style>
+        <div className="loading">
+          <div className="bg-animations">
+            <div className="orb orb-a"></div>
+            <div className="orb orb-b"></div>
+            <div className="grid-overlay"></div>
+          </div>
+          <div className="spinner"></div>
+          <div className="loading-text">Carregando dashboard…</div>
+        </div>
+      </>
+    );
+  }
   
   if (!session) {
-    redirect("/login");
+    return null;
   }
 
   const dashboards = [
-    {
-      id: "faturamento",
-      title: "Dashboard de Faturamento",
-      description: "Visão geral do faturamento e receitas",
-      status: "Disponível",
-      href: "/dashboard/faturamento",
-      icon: "💰",
-      color: "bg-green-500"
-    },
     {
       id: "vendas",
       title: "Dashboard de Vendas",
       description: "Análise de vendas por produto e margem",
       status: "Disponível",
       href: "/dashboard/vendas",
-      icon: "📊",
-      color: "bg-blue-500"
+      icon: "bar_chart",
+      color: "#1E88E5",
+      bgColor: "rgba(30, 136, 229, 0.15)"
     },
     {
       id: "producao",
@@ -35,113 +105,632 @@ export default async function Home() {
       description: "Monitoramento das etapas de produção",
       status: "Em desenvolvimento",
       href: "/dashboard/producao",
-      icon: "🏭",
-      color: "bg-orange-500"
+      icon: "factory",
+      color: "#f4c27a",
+      bgColor: "rgba(244, 194, 122, 0.15)"
     }
   ];
 
+
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Valepan Dashboard</h1>
-              <p className="text-gray-600">Sistema de gestão operacional</p>
+    <>
+      {/* Carregar Google Fonts Material Icons */}
+      <link 
+        href="https://fonts.googleapis.com/icon?family=Material+Icons" 
+        rel="stylesheet" 
+      />
+      
+      <style jsx global>{`
+        :root {
+          --bg: #0a0e14;
+          --panel: rgba(20, 22, 28, .7);
+          --panel-border: rgba(255,255,255,.09);
+          --muted: #c9cbd6;
+          --text: #f2f4f7;
+          --accent: #e67e22;
+          --accent-2: #f4c27a;
+          --danger: #c0392b;
+          --glass: rgba(255,255,255,.08);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+          margin: 0; 
+          font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+          color: var(--text) !important; 
+          background: linear-gradient(180deg, #090c12 0%, #0f1420 60%, #090c12 100%) !important;
+          min-height: 100vh;
+        }
+
+        .bg-animations { position: fixed; inset: 0; overflow: hidden; z-index: -1; }
+        .orb { position: absolute; width: 520px; height: 520px; filter: blur(82px); opacity: .4; border-radius: 50%; animation: float 20s ease-in-out infinite; }
+        .orb-a { background: radial-gradient(circle at 30% 30%, #1E88E5, transparent 60%); top: -120px; left: -80px; }
+        .orb-b { background: radial-gradient(circle at 70% 70%, #00d3a7, transparent 60%); bottom: -140px; right: -120px; animation-delay: -6s; }
+        @keyframes float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-20px) } }
+        .grid-overlay { position: absolute; inset: 0; background: linear-gradient(transparent 95%, rgba(255,255,255,.05) 95%), linear-gradient(90deg, transparent 95%, rgba(255,255,255,.05) 95%); background-size: 28px 28px; mix-blend-mode: overlay; opacity: .25; }
+
+        .app-header {
+          display: flex; justify-content: space-between; align-items: center;
+          width: 100%;
+          margin-left: 0;
+          padding: 12px 12px;
+          position: sticky; top: 0; z-index: 998;
+          backdrop-filter: blur(12px); 
+          background: linear-gradient(180deg, rgba(9,14,28,.65), rgba(9,14,28,.35)); 
+          border-bottom: 1px solid var(--panel-border);
+          transition: margin-left 0.2s ease, width 0.2s ease; /* Transição suave */
+        }
+        
+        /* Em desktop, ajustar header para sidebar */
+        @media (min-width: 769px) {
+          .app-header {
+            margin-left: 0; /* Não precisa de margem, o container pai já tem */
+            width: 100%; /* Ocupa toda a largura disponível */
+            padding: 12px 20px;
+            border-left: 1px solid rgba(255, 255, 255, 0.03); /* Borda sutil para conectar ao sidebar */
+            border-top-left-radius: 0; /* Remove borda arredondada esquerda */
+            border-bottom-left-radius: 0; /* Remove borda arredondada esquerda */
+          }
+        }
+        
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+        
+        .brand { 
+          margin: 0; 
+          font-size: 24px; 
+          font-weight: 800; 
+          letter-spacing: .4px; 
+          color: var(--text);
+          line-height: 1.2;
+        }
+        
+        .brand span { color: var(--accent); }
+        
+        .header-right { 
+          display: flex; 
+          align-items: center; 
+          position: relative; 
+        }
+        
+        .logout-btn-icon {
+          background: transparent;
+          color: var(--text);
+          border: none;
+          padding: 8px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-decoration: none;
+        }
+        
+        .logout-btn-icon:hover {
+          background: rgba(255,255,255,.05);
+          transform: translateY(-1px);
+        }
+        
+        .logout-btn-icon .material-icons {
+          font-size: 20px;
+          color: #e67e22;
+        }
+
+        .container { 
+          padding: 8px 12px 40px; 
+          display: grid; 
+          gap: 16px; 
+          width: 100%; 
+          max-width: none; 
+        }
+        
+        /* Em desktop, ajustar container para sidebar */
+        @media (min-width: 769px) {
+          .container {
+            padding: 8px 20px 40px;
+          }
+        }
+        
+        .welcome-section {
+          text-align: center;
+          margin-bottom: 32px;
+          padding: 32px 20px;
+        }
+        
+        .welcome-title {
+          font-size: 32px;
+          font-weight: 800;
+          color: var(--text);
+          margin: 0 0 12px 0;
+          letter-spacing: -0.5px;
+        }
+        
+        .welcome-subtitle {
+          font-size: 16px;
+          color: var(--muted);
+          margin: 0;
+          font-weight: 500;
+        }
+        
+        .dashboards-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: 20px;
+          margin-bottom: 32px;
+        }
+        
+        .dashboard-card {
+          background: var(--panel);
+          border: 1px solid var(--panel-border);
+          border-radius: 20px;
+          padding: 24px;
+          box-shadow: 0 8px 24px rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.06);
+          backdrop-filter: blur(8px);
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .dashboard-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 16px 40px rgba(0,0,0,.35), inset 0 1px rgba(255,255,255,.08);
+          border-color: rgba(255,255,255,.15);
+        }
+        
+        .dashboard-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, var(--accent), var(--accent-2));
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+        
+        .dashboard-card:hover::before {
+          opacity: 1;
+        }
+        
+        .dashboard-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 20px;
+        }
+        
+        .dashboard-icon {
+          width: 56px;
+          height: 56px;
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+        }
+        
+        .dashboard-icon .material-icons {
+          font-size: 28px;
+          font-weight: normal;
+        }
+        
+        .dashboard-icon::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 16px;
+          padding: 2px;
+          background: linear-gradient(135deg, rgba(255,255,255,.2), rgba(255,255,255,.05));
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+        }
+        
+        .status-badge {
+          padding: 6px 12px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .status-available {
+          background: rgba(0, 211, 167, 0.2);
+          color: #00d3a7;
+          border: 1px solid rgba(0, 211, 167, 0.3);
+        }
+        
+        .status-development {
+          background: rgba(244, 194, 122, 0.2);
+          color: #f4c27a;
+          border: 1px solid rgba(244, 194, 122, 0.3);
+        }
+        
+        .dashboard-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--text);
+          margin: 0 0 8px 0;
+          letter-spacing: 0.2px;
+        }
+        
+        .dashboard-description {
+          color: var(--muted);
+          font-size: 14px;
+          line-height: 1.5;
+          margin: 0 0 24px 0;
+        }
+        
+        .dashboard-button {
+          width: 100%;
+          padding: 12px 20px;
+          border-radius: 12px;
+          font-weight: 700;
+          font-size: 14px;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          transition: all 0.2s ease;
+          border: none;
+          cursor: pointer;
+        }
+        
+        .dashboard-button.available {
+          background: linear-gradient(135deg, var(--accent), #cf6e1d);
+          color: white;
+          box-shadow: 0 4px 16px rgba(230,126,34,.3);
+        }
+        
+        .dashboard-button.available:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(230,126,34,.4);
+        }
+        
+        .dashboard-button.disabled {
+          background: rgba(255,255,255,.08);
+          color: var(--muted);
+          border: 1px solid rgba(255,255,255,.12);
+          cursor: not-allowed;
+        }
+        
+        .sheets-section {
+          margin-top: 32px;
+        }
+        
+        .sheets-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 20px;
+        }
+        
+        .sheet-card {
+          background: var(--panel);
+          border: 1px solid var(--panel-border);
+          border-radius: 20px;
+          padding: 24px;
+          box-shadow: 0 8px 24px rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.06);
+          backdrop-filter: blur(8px);
+          transition: all 0.3s ease;
+          text-decoration: none;
+          color: var(--text);
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .sheet-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, var(--accent), var(--accent-2));
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+        
+        .sheet-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 16px 40px rgba(0,0,0,.35), inset 0 1px rgba(255,255,255,.08);
+          border-color: rgba(255,255,255,.15);
+        }
+        
+        .sheet-card:hover::before {
+          opacity: 1;
+        }
+        
+        .sheet-icon {
+          width: 56px;
+          height: 56px;
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          position: relative;
+        }
+        
+        .sheet-icon .material-icons {
+          font-size: 28px;
+          font-weight: normal;
+        }
+        
+        .sheet-icon::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 16px;
+          padding: 2px;
+          background: linear-gradient(135deg, rgba(255,255,255,.2), rgba(255,255,255,.05));
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+        }
+        
+        .sheet-content {
+          flex: 1;
+          min-width: 0;
+        }
+        
+        .sheet-title {
+          font-size: 16px;
+          font-weight: 700;
+          color: var(--text);
+          margin: 0 0 6px 0;
+          letter-spacing: 0.2px;
+        }
+        
+        .sheet-description {
+          color: var(--muted);
+          font-size: 13px;
+          line-height: 1.4;
+          margin: 0;
+        }
+        
+        .sheet-arrow {
+          color: var(--muted);
+          opacity: 0.6;
+          transition: all 0.2s ease;
+          flex-shrink: 0;
+        }
+        
+        .sheet-card:hover .sheet-arrow {
+          opacity: 1;
+          color: var(--accent);
+          transform: translateX(4px);
+        }
+        
+        .arrow-icon {
+          width: 16px;
+          height: 16px;
+          fill: currentColor;
+        }
+        
+        @media (max-width: 768px) {
+          .app-header {
+            padding: 12px 12px 12px 68px; /* Aumentado para dar mais espaço */
+          }
+          
+          .header-left {
+            margin-left: 12px; /* Espaçamento aumentado entre menu hamburger e título */
+          }
+          
+          .brand {
+            font-size: 20px;
+          }
+          
+          .welcome-title {
+            font-size: 24px;
+          }
+          
+          .welcome-subtitle {
+            font-size: 14px;
+          }
+          
+          .dashboards-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+          
+          .sheets-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+          
+          .sheet-card {
+            padding: 20px;
+            gap: 16px;
+          }
+          
+          .sheet-icon {
+            width: 48px;
+            height: 48px;
+          }
+          
+          .sheet-icon .material-icons {
+            font-size: 24px;
+          }
+        }
+        
+        /* Em desktop, header sem espaçamento extra */
+        @media (min-width: 769px) {
+          .app-header {
+            padding: 12px 20px;
+          }
+        }
+      `}</style>
+      
+      <div className="bg-animations">
+        <div className="orb orb-a"></div>
+        <div className="orb orb-b"></div>
+        <div className="grid-overlay"></div>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                Bem-vindo, <span className="font-medium">{session.user?.name}</span>
-              </div>
-              <Image 
-                src={session.user?.image || ""} 
-                alt="Avatar" 
-                width={32}
-                height={32}
-                className="w-8 h-8 rounded-full"
-              />
-              <LogoutButton />
-            </div>
+
+      <header className="app-header">
+        <div className="header-left">
+          <div className="brand">
+            <span>Vale</span>pan Dashboard
           </div>
+        </div>
+        <div className="header-right">
+          <Link href="/api/auth/signout" className="logout-btn-icon" title="Sair">
+            <span className="material-icons">logout</span>
+          </Link>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Dashboards Disponíveis</h2>
-          <p className="text-gray-600">Selecione um dashboard para visualizar os dados operacionais</p>
-        </div>
+      <main className="container">
+        <section className="welcome-section">
+          <h2 className="welcome-title">Dashboards Disponíveis</h2>
+          <p className="welcome-subtitle">Selecione um dashboard para visualizar os dados operacionais</p>
+        </section>
 
-        {/* Dashboard Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <section className="dashboards-grid">
           {dashboards.map((dashboard) => (
-            <div
-              key={dashboard.id}
-              className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden"
-            >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`w-12 h-12 ${dashboard.color} rounded-lg flex items-center justify-center text-white text-xl`}>
-                    {dashboard.icon}
+            <div key={dashboard.id} className="dashboard-card">
+              <div className="dashboard-header">
+                <div 
+                  className="dashboard-icon"
+                  style={{ 
+                    background: dashboard.bgColor,
+                    color: dashboard.color
+                  }}
+                >
+                  <span className="material-icons">{dashboard.icon}</span>
                   </div>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    dashboard.status === "Disponível" 
-                      ? "bg-green-100 text-green-800" 
-                      : "bg-yellow-100 text-yellow-800"
+                <span className={`status-badge ${
+                  dashboard.status === "Disponível" ? "status-available" : "status-development"
                   }`}>
                     {dashboard.status}
                   </span>
                 </div>
                 
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {dashboard.title}
-                </h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  {dashboard.description}
-                </p>
-                
-                <a
+              <h3 className="dashboard-title">{dashboard.title}</h3>
+              <p className="dashboard-description">{dashboard.description}</p>
+              
+              {dashboard.status === "Disponível" ? (
+                <Link 
                   href={dashboard.href}
-                  className={`inline-flex items-center justify-center w-full px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                    dashboard.status === "Disponível"
-                      ? "bg-blue-600 text-white hover:bg-blue-700"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  }`}
-                  {...(dashboard.status !== "Disponível" && { "aria-disabled": true })}
+                  className="dashboard-button available"
                 >
-                  {dashboard.status === "Disponível" ? "Acessar Dashboard" : "Em breve"}
-                </a>
-              </div>
+                  Acessar Dashboard
+                  <svg className="arrow-icon" viewBox="0 0 24 24">
+                    <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"/>
+                  </svg>
+                </Link>
+              ) : (
+                <button className="dashboard-button disabled">
+                  Em breve
+                </button>
+              )}
             </div>
           ))}
-        </div>
+        </section>
 
-        {/* Quick Stats */}
-        <div className="mt-12">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo Rápido</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-lg shadow">
-              <div className="text-2xl font-bold text-green-600">R$ 0,00</div>
-              <div className="text-sm text-gray-600">Faturamento Hoje</div>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow">
-              <div className="text-2xl font-bold text-blue-600">0</div>
-              <div className="text-sm text-gray-600">Pedidos Hoje</div>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow">
-              <div className="text-2xl font-bold text-orange-600">0%</div>
-              <div className="text-sm text-gray-600">Eficiência Produção</div>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow">
-              <div className="text-2xl font-bold text-purple-600">0</div>
-              <div className="text-sm text-gray-600">Produtos Ativos</div>
-            </div>
-          </div>
+        <section className="sheets-section">
+          <h3 style={{ 
+            gridColumn: '1 / -1', 
+            margin: '0 0 16px 0', 
+            fontSize: '18px', 
+            fontWeight: '700', 
+            color: 'var(--accent-2)',
+            letterSpacing: '0.2px'
+          }}>
+            Planilhas de Dados
+          </h3>
+          <div className="sheets-grid">
+            <a 
+              href="https://docs.google.com/spreadsheets/d/1WsdJ4ocAhLis_7eDkPDHgYMraNqmRe0I2XQJK-mrHcI/edit" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="sheet-card"
+            >
+              <div className="sheet-icon" style={{ background: 'rgba(0, 211, 167, 0.15)', color: '#00d3a7' }}>
+                <span className="material-icons">inventory</span>
+              </div>
+              <div className="sheet-content">
+                <h4 className="sheet-title">Produtos</h4>
+                <p className="sheet-description">Receitas, custos e composição de todos os produtos</p>
+              </div>
+              <div className="sheet-arrow">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M7 17L17 7M17 7H7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </a>
+
+            <a 
+              href="https://docs.google.com/spreadsheets/d/1_xlm8YzBpG7a3LN3lBN6snbIYxJxMefvPPZxsx7vCaM/edit" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="sheet-card"
+            >
+              <div className="sheet-icon" style={{ background: 'rgba(30, 136, 229, 0.15)', color: '#1E88E5' }}>
+                <span className="material-icons">point_of_sale</span>
+              </div>
+              <div className="sheet-content">
+                <h4 className="sheet-title">Base de Vendas</h4>
+                <p className="sheet-description">Todas as vendas por produto e cliente</p>
+              </div>
+              <div className="sheet-arrow">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M7 17L17 7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
         </div>
+            </a>
+
+            <a 
+              href="https://docs.google.com/spreadsheets/d/1-YyKoGWHUWKBLnqK35mf9varGS-DA104AldE_APS6qw/edit" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="sheet-card"
+            >
+              <div className="sheet-icon" style={{ background: 'rgba(230, 126, 34, 0.15)', color: '#e67e22' }}>
+                <span className="material-icons">people</span>
+              </div>
+              <div className="sheet-content">
+                <h4 className="sheet-title">Carteira de Clientes</h4>
+                <p className="sheet-description">Clientes, leads e status de negociação</p>
+              </div>
+              <div className="sheet-arrow">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M7 17L17 7H7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+            </div>
+            </a>
+
+            <a 
+              href="https://docs.google.com/spreadsheets/d/1oqcxI5Qy2NsnYr5vdDtnI1Le7Mb5izKD-kQLYlj3VJM/edit" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="sheet-card"
+            >
+              <div className="sheet-icon" style={{ background: 'rgba(244, 194, 122, 0.15)', color: '#f4c27a' }}>
+                <span className="material-icons">precision_manufacturing</span>
+            </div>
+              <div className="sheet-content">
+                <h4 className="sheet-title">Controle de Produção</h4>
+                <p className="sheet-description">Controle de cada etapa da produção</p>
+            </div>
+              <div className="sheet-arrow">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M7 17L17 7M17 7H7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+            </div>
+            </a>
+          </div>
+        </section>
       </main>
-    </div>
+    </>
   );
 }

@@ -25,7 +25,8 @@ Configure estas variáveis no painel da Vercel:
 ## 📊 Funcionalidades
 
 - ✅ Login via Google OAuth
-- ✅ Dashboard de Faturamento
+- ✅ Dashboard de Vendas
+- ✅ Dashboard de Produção
 - ✅ KPIs dinâmicos
 - ✅ Filtros de período
 - ✅ Integração com Google Sheets
