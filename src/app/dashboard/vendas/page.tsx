@@ -61,6 +61,7 @@ interface TopItem {
   precoMedioPorPacote?: number;
   custoMedioPorPacote?: number;
   pacotesTotal?: number;
+  quantidadeTotal?: number;
 }
 
 interface RankingItem {
@@ -579,6 +580,12 @@ export default function VendasDashboard() {
       return sum + pac;
     }, 0);
     
+    const outrosProdutosQuantidade = outrosProdutos.reduce((sum, [produto]) => {
+      const produtoRows = filteredData.filter(row => row.produto === produto);
+      const qtd = produtoRows.reduce((acc, row) => acc + (row.quantidade || 0), 0);
+      return sum + qtd;
+    }, 0);
+    
     const topProdutos = [
       ...top5Produtos.map(([produto, valor], index) => {
         const cmv = produtoCMVMap.get(produto) || 0;
@@ -626,7 +633,7 @@ export default function VendasDashboard() {
         margemBruta: outrosProdutosMargemBruta,
         precoMedioPorPacote: outrosProdutosPacotes > 0 ? outrosProdutosTotal / outrosProdutosPacotes : 0,
         custoMedioPorPacote: outrosProdutosPacotes > 0 ? outrosProdutosCMV / outrosProdutosPacotes : 0,
-        quantidadeTotal: 0,
+        quantidadeTotal: outrosProdutosQuantidade,
         pacotesTotal: outrosProdutosPacotes,
         cor: cores[5] // Cor cinza para "Outros"
       }] : [])
@@ -2123,6 +2130,12 @@ export default function VendasDashboard() {
                   const totalPeriodo = chartData.topProdutos.reduce((sum: number, p: TopItem) => sum + p.valor, 0) || 1;
                   const pct = ((produto.valor ?? 0) / totalPeriodo * 100) || 0;
                   
+                  // Calcular valores para exibição baseado em meta.hasPackages
+                  const quantidadeTotal = produto.quantidadeTotal ?? 0;
+                  const cmv = produto.cmv ?? 0;
+                  const precoMedioPorUnidade = quantidadeTotal > 0 ? produto.valor / quantidadeTotal : 0;
+                  const custoMedioPorUnidade = quantidadeTotal > 0 ? cmv / quantidadeTotal : 0;
+                  
                   // Lógica de seleção especial para "Outros"
                   let isSelected = false;
                   if ((produto.produto ?? '') === 'Outros') {
@@ -2209,17 +2222,21 @@ export default function VendasDashboard() {
                     >
                       <span className={vendasStyles.dot} style={{backgroundColor: produto.cor}}></span>
                       <div style={{flex: 1, minWidth: 0}}>
-                        {/* Primeira linha: Título + PMP e CMP */}
+                        {/* Primeira linha: Título + PMP/CMP ou PMV/CMV */}
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px'}}>
                           <div style={{fontWeight: '600', color: 'var(--text)'}}>{produto.produto ?? ''}</div>
                           <div style={{display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px'}}>
-                            <span className={vendasStyles['preco-medio']} style={{color: 'var(--accent)', fontWeight: '500'}}>PMP: {(produto.precoMedioPorPacote ?? 0).toFixed(2)}</span>
-                            <span className={vendasStyles['custo-medio']} style={{color: 'var(--accent)', fontWeight: '500'}}>CMP: {(produto.custoMedioPorPacote ?? 0).toFixed(2)}</span>
+                            <span className={vendasStyles['preco-medio']} style={{color: 'var(--accent)', fontWeight: '500'}}>
+                              {meta?.hasPackages ? 'PMP' : 'PMV'}: {meta?.hasPackages ? (produto.precoMedioPorPacote ?? 0).toFixed(2) : precoMedioPorUnidade.toFixed(2)}
+                            </span>
+                            <span className={vendasStyles['custo-medio']} style={{color: 'var(--accent)', fontWeight: '500'}}>
+                              {meta?.hasPackages ? 'CMP' : 'CMV'}: {meta?.hasPackages ? (produto.custoMedioPorPacote ?? 0).toFixed(2) : custoMedioPorUnidade.toFixed(2)}
+                            </span>
                           </div>
                         </div>
-                        {/* Segunda linha: Valor, pacotes e MB */}
+                        {/* Segunda linha: Valor, pacotes/unidades e MB */}
                         <div style={{fontSize: '11px', color: 'var(--muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span>{Math.round(produto.valor / 1000)}k ({pct.toFixed(0)}%) • {formatK(produto.pacotesTotal ?? 0)} pacotes</span>
+                          <span>{Math.round(produto.valor / 1000)}k ({pct.toFixed(0)}%) • {meta?.hasPackages ? `${formatK(produto.pacotesTotal ?? 0)} pacotes` : `${formatK(quantidadeTotal)} unidades`}</span>
                           <span className={vendasStyles['margem-bruta']} style={{color: 'var(--accent)', fontWeight: '500'}}>MB: {Math.round(produto.margemBruta ?? 0)}%</span>
                         </div>
                       </div>
