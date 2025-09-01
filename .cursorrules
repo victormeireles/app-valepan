@@ -16,28 +16,30 @@
 3. Is it feature-specific → use [feature].module.css
 4. NEVER inline styles in JSX unless absolutely necessary
 
-## Examples:
-✅ Good:
-```css
-/* In globals.css */
-:root {
-  --primary-color: #e67e22;
-}
-```
-
-```css
-/* In vendas.module.css */
-.kpi {
-  background: var(--primary-color);
-}
-```
-
-❌ Bad:
-```tsx
-<div style={{background: '#e67e22'}}>
-```
-
 ## Always ask before adding CSS:
 - "Should this go in globals.css or a module?"
 - "Is this style reusable across components?"
-- "Can this be achieved with CSS variables?"s
+- "Can this be achieved with CSS variables?"
+
+# TypeScript & Build Rules
+
+## NEVER use `any` type
+- Use proper types: `(obj as { prop: string }).prop` instead of `(obj as any).prop`
+- Create interfaces for complex objects
+- Use `unknown` only when type is truly unknown
+
+## Handle Optional Properties
+- Always use `??` for optional properties: `value.prop ?? defaultValue`
+- Check for undefined: `(obj.prop ?? '')` for strings, `(obj.prop ?? 0)` for numbers
+- Use type guards: `'prop' in obj` instead of `(obj as any).prop`
+
+## Build Compliance
+- All code must pass `npm run build` without errors
+- Remove unused functions and variables immediately
+- Use proper type assertions, not `any`
+- Handle all possible undefined values
+
+## Before generating code:
+1. "Will this pass TypeScript strict mode?"
+2. "Are all optional properties handled with `??`?"
+3. "Am I using proper types instead of `any`?"

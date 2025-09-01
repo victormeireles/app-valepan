@@ -28,7 +28,7 @@ const authConfig = {
 	basePath: "/api/auth",
 	callbacks: {
 		// @ts-expect-error - NextAuth v5 callback typing
-		async jwt({ token, account, trigger, user }) {
+		async jwt({ token, account, user }) {
 			// Primeira vez (login) - salvar tokens e dados do tenant
 			if (account) {
 				token.accessToken = account.access_token;

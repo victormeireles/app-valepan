@@ -13,11 +13,88 @@ import { useTenant } from '@/hooks/useTenant';
 import vendasStyles from '@/styles/vendas.module.css';
 import loadingStyles from '@/styles/loading.module.css';
 
+// Types for Chart.js - using any for external library
 declare global {
   interface Window {
     Chart: any;
   }
 }
+
+// KPI Types
+interface KpiValue {
+  valor: number;
+  variacao: number;
+  projecao?: number;
+}
+
+interface KpisData {
+  faturamento: KpiValue;
+  pedidos: KpiValue;
+  ticketMedio: KpiValue;
+  margemBruta: KpiValue;
+  clientesUnicos: KpiValue;
+  unidades: KpiValue;
+  pacotes: KpiValue;
+  caixas: KpiValue;
+  faturamentoAnual: KpiValue;
+  compareLabel: string;
+  showProjection: boolean;
+}
+
+// Chart Data Types
+interface SemanaData {
+  label: string;
+  faturamento: number;
+  margemBruta: number;
+  cmv: number;
+  inicio: Date;
+  fim: Date;
+}
+
+interface TopItem {
+  cliente?: string;
+  produto?: string;
+  valor: number;
+  cor: string;
+  cmv?: number;
+  margemBruta?: number;
+  precoMedioPorPacote?: number;
+  custoMedioPorPacote?: number;
+  pacotesTotal?: number;
+}
+
+interface RankingItem {
+  cliente: string;
+  cur: number;
+  prev: number;
+  delta: number;
+  pct: number;
+}
+
+interface EngajamentoData {
+  sets: {
+    novos: Set<unknown>;
+    ativos: Set<unknown>;
+    quaseInativos: Set<unknown>;
+    inativos: Set<unknown>;
+  };
+}
+
+interface ChartDataStructure {
+  semanas: SemanaData[];
+  topClientes: TopItem[];
+  topProdutos: TopItem[];
+  rankingUp: RankingItem[];
+  rankingDown: RankingItem[];
+  engajamento: EngajamentoData;
+  y1Limits?: {
+    min: number;
+    max: number;
+  };
+}
+
+// Modal Data Types - using any for flexibility with different data structures
+type ModalData = any;
 
 export default function VendasDashboard() {
   const { data: session, status } = useSession();
@@ -42,7 +119,7 @@ export default function VendasDashboard() {
   const [showProductPanel, setShowProductPanel] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
-  const [modalData, setModalData] = useState<any[]>([]);
+  const [modalData, setModalData] = useState<ModalData[]>([]);
   // Drilldown substituído por selects dedicados
   const [selectCliente, setSelectCliente] = useState<string>('');
   const [selectProduto, setSelectProduto] = useState<string>('');
@@ -54,10 +131,10 @@ export default function VendasDashboard() {
   const [productPickerTemp, setProductPickerTemp] = useState<string>('');
 
   // Estados dos KPIs e dados calculados
-  const [kpis, setKpis] = useState<any>(null);
+  const [kpis, setKpis] = useState<KpisData | null>(null);
   const [meta, setMeta] = useState<{hasPackages:boolean;hasBoxes:boolean} | null>(null);
-  const [chartData, setChartData] = useState<any>(null);
-  const [charts, setCharts] = useState<any>({});
+  const [chartData, setChartData] = useState<ChartDataStructure | null>(null);
+  const [charts, setCharts] = useState<Record<string, any>>({});
 
   if (status === 'unauthenticated') {
     redirect('/login');
@@ -265,6 +342,10 @@ export default function VendasDashboard() {
     const calcVariacao = (atual: number, anterior: number) => 
       anterior > 0 ? ((atual - anterior) / anterior) * 100 : 0;
 
+    // Calcular ticket médio
+    const ticketMedioAtual = pedidosAtual > 0 ? faturamentoAtual / pedidosAtual : 0;
+    const ticketMedioAnterior = pedidosAnterior > 0 ? faturamentoAnterior / pedidosAnterior : 0;
+
     // Faturamento YTD
     const anoAtual = new Date().getFullYear();
     const inicioAno = new Date(anoAtual, 0, 1);
@@ -307,6 +388,10 @@ export default function VendasDashboard() {
           valor: pedidosAtual,
           variacao: calcVariacao(pedidosAtual, pedidosAnterior),
           projecao: projPed || pedidosAtual * 2
+        },
+        ticketMedio: {
+          valor: ticketMedioAtual,
+          variacao: calcVariacao(ticketMedioAtual, ticketMedioAnterior)
         },
         margemBruta: { 
           valor: margemBrutaAtual,
@@ -586,15 +671,15 @@ export default function VendasDashboard() {
     }
     
     // Ordenar por delta (maior para menor)
-    variations.sort((a, b) => b.delta - a.delta);
+    variations.sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0));
     
     const rankingUp = variations
-      .filter(item => item.delta > 0)
+      .filter(item => (item.delta ?? 0) > 0)
       .slice(0, 5);
     
     const rankingDown = variations
-      .filter(item => item.delta < 0)
-      .sort((a, b) => a.delta - b.delta) // Ordenar do mais negativo para o menos negativo (maior queda em absoluto primeiro)
+      .filter(item => (item.delta ?? 0) < 0)
+      .sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0)) // Ordenar do mais negativo para o menos negativo (maior queda em absoluto primeiro)
       .slice(0, 5);
 
     // Engajamento baseado em períodos específicos (como no original)
@@ -695,7 +780,7 @@ export default function VendasDashboard() {
       if (chart && chart.destroy) chart.destroy();
     });
 
-    const newCharts: any = {};
+    const newCharts: Record<string, any> = {};
 
     // Gráfico de semanas
     const ctxSemanas = document.getElementById('chart-semanas') as HTMLCanvasElement;
@@ -703,11 +788,11 @@ export default function VendasDashboard() {
       newCharts.semanas = new window.Chart(ctxSemanas, {
         type: 'bar',
         data: {
-          labels: chartData.semanas.map((s: any) => s.label),
+          labels: chartData.semanas.map((s: SemanaData) => s.label),
           datasets: [
             {
               label: 'Margem Bruta',
-              data: chartData.semanas.map((s: any) => s.margemBruta),
+              data: chartData.semanas.map((s: SemanaData) => s.margemBruta),
               type: 'line',
               borderColor: '#FFA726',
               backgroundColor: 'rgba(255, 107, 107, 0.1)',
@@ -724,7 +809,7 @@ export default function VendasDashboard() {
             },
             {
               label: 'Faturamento',
-              data: chartData.semanas.map((s: any) => s.faturamento),
+              data: chartData.semanas.map((s: SemanaData) => s.faturamento),
               backgroundColor: '#1E88E5',
               borderRadius: 8,
               borderSkipped: 'bottom',
@@ -774,7 +859,7 @@ export default function VendasDashboard() {
               grid: { color: 'rgba(255,255,255,0.1)' },
               ticks: { 
                 color: '#c9cbd6',
-                callback: (v: any) => {
+                callback: (v: number) => {
                   // Formatação com 0 casas decimais para o eixo Y
                   if (v >= 1000000) {
                     return `${Math.round(v / 1000000)}M`;
@@ -796,7 +881,7 @@ export default function VendasDashboard() {
               grid: { drawOnChartArea: false },
               ticks: { 
                 color: '#FFA726',
-                callback: (v: any) => `${v.toFixed(1)}%`
+                callback: (v: number) => `${v.toFixed(1)}%`
               }
             },
             x: { 
@@ -850,7 +935,7 @@ export default function VendasDashboard() {
 
       // Implementar click para filtrar período
       ctxSemanas.style.cursor = 'pointer';
-      ctxSemanas.onclick = (evt: any) => {
+      ctxSemanas.onclick = (evt: MouseEvent) => {
         // Verificar se chartData e semanas existem
         if (!chartData || !chartData.semanas || !Array.isArray(chartData.semanas)) {
           console.warn('Dados de semanas não disponíveis para click');
@@ -904,15 +989,15 @@ export default function VendasDashboard() {
       ctxClientes.removeAttribute('width');
       ctxClientes.removeAttribute('height');
       
-      const totalPeriodo = chartData.topClientes.reduce((sum: number, c: any) => sum + c.valor, 0) || 1;
+      const totalPeriodo = chartData.topClientes.reduce((sum: number, c: TopItem) => sum + c.valor, 0) || 1;
       
       newCharts.clientes = new window.Chart(ctxClientes, {
         type: 'doughnut',
         data: {
-          labels: chartData.topClientes.map((c: any) => c.cliente),
+          labels: chartData.topClientes.map((c: TopItem) => c.cliente),
           datasets: [{
-            data: chartData.topClientes.map((c: any) => c.valor),
-            backgroundColor: chartData.topClientes.map((c: any) => c.cor),
+            data: chartData.topClientes.map((c: TopItem) => c.valor),
+            backgroundColor: chartData.topClientes.map((c: TopItem) => c.cor),
             borderWidth: 0
           }]
         },
@@ -960,7 +1045,7 @@ export default function VendasDashboard() {
 
       // Implementar click para filtrar por cliente
       ctxClientes.style.cursor = 'pointer';
-      ctxClientes.onclick = (evt: any) => {
+      ctxClientes.onclick = (evt: MouseEvent) => {
         const points = newCharts.clientes.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
         if (!points || points.length === 0) return;
         const index = points[0].index;
@@ -1042,15 +1127,15 @@ export default function VendasDashboard() {
       ctxProdutos.removeAttribute('width');
       ctxProdutos.removeAttribute('height');
       
-      const totalPeriodoProdutos = chartData.topProdutos.reduce((sum: number, p: any) => sum + p.valor, 0) || 1;
+      const totalPeriodoProdutos = chartData.topProdutos.reduce((sum: number, p: TopItem) => sum + p.valor, 0) || 1;
       
       newCharts.produtos = new window.Chart(ctxProdutos, {
         type: 'doughnut',
         data: {
-          labels: chartData.topProdutos.map((p: any) => p.produto),
+          labels: chartData.topProdutos.map((p: TopItem) => p.produto),
           datasets: [{
-            data: chartData.topProdutos.map((p: any) => p.valor),
-            backgroundColor: chartData.topProdutos.map((p: any) => p.cor),
+            data: chartData.topProdutos.map((p: TopItem) => p.valor),
+            backgroundColor: chartData.topProdutos.map((p: TopItem) => p.cor),
             borderWidth: 0
           }]
         },
@@ -1098,7 +1183,7 @@ export default function VendasDashboard() {
 
       // Implementar click para filtrar por produto
       ctxProdutos.style.cursor = 'pointer';
-      ctxProdutos.onclick = (evt: any) => {
+      ctxProdutos.onclick = (evt: MouseEvent) => {
         const points = newCharts.produtos.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
         if (!points || points.length === 0) return;
         const index = points[0].index;
@@ -1185,10 +1270,10 @@ export default function VendasDashboard() {
           datasets: [{
             label: 'Engajamento',
             data: [
-              chartData.engajamento.novos,
-              chartData.engajamento.ativos,
-              chartData.engajamento.quase,
-              chartData.engajamento.churn
+              chartData.engajamento.sets.novos.size,
+              chartData.engajamento.sets.ativos.size,
+              chartData.engajamento.sets.quaseInativos.size,
+              chartData.engajamento.sets.inativos.size
             ],
             backgroundColor: ['#1E88E5', '#00d3a7', '#ffb84d', '#ff6b6b'],
             borderRadius: 8,
@@ -1234,7 +1319,7 @@ export default function VendasDashboard() {
             const { ctx, data } = chart;
             chart.data.datasets.forEach((dataset: any, i: number) => {
               const meta = chart.getDatasetMeta(i);
-              meta.data.forEach((bar: any, index: number) => {
+              meta.data.forEach((bar: { x: number; y: number; _index: number }, index: number) => {
                 const value = dataset.data[index];
                 if (value > 0) {
                   ctx.save();
@@ -1253,7 +1338,7 @@ export default function VendasDashboard() {
 
       // Implementar click para abrir modal
       ctxEng.style.cursor = 'pointer';
-      ctxEng.onclick = (evt: any) => {
+      ctxEng.onclick = (evt: MouseEvent) => {
         const points = newCharts.engajamento.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
         if (!points || points.length === 0) return;
         const idx = points[0].index;
@@ -1271,7 +1356,7 @@ export default function VendasDashboard() {
         };
         
         const mapAll = buildMapTotalELast(rawData);
-        let setRef: Set<string>;
+        let setRef: Set<unknown>;
         let title: string;
         
         if (idx === 0) {
@@ -1290,9 +1375,9 @@ export default function VendasDashboard() {
         
         const list = Array.from(setRef || [])
           .map(c => ({
-            cliente: c,
-            total: mapAll.get(c)?.total || 0,
-            last: mapAll.get(c)?.last || new Date(0)
+            cliente: String(c),
+            total: mapAll.get(String(c))?.total || 0,
+            last: mapAll.get(String(c))?.last || new Date(0)
           }))
           .sort((a, b) => b.last.getTime() - a.last.getTime());
         
@@ -1825,7 +1910,7 @@ export default function VendasDashboard() {
                  {formatVariation(kpis.faturamento.variacao)} vs {kpis.compareLabel || 'mês anterior'}
                </div>
                {kpis.showProjection && (
-                 <div className={vendasStyles['kpi-foot']}>Projeção: <strong>{formatK(kpis.faturamento.projecao)}</strong></div>
+                                   <div className={vendasStyles['kpi-foot']}>Projeção: <strong>{formatK(kpis.faturamento.projecao ?? 0)}</strong></div>
                )}
           </div>
           
@@ -1847,10 +1932,16 @@ export default function VendasDashboard() {
                    </span>
                  </div>
                  <div className={vendasStyles['kpi-secondary-row']}>
+                   <span className={vendasStyles['kpi-secondary-value']}>R$ {formatK(kpis.ticketMedio.valor)} ticket médio</span>
+                   <span className={`${vendasStyles['kpi-variation-inline']} ${kpis.ticketMedio.variacao >= 0 ? vendasStyles.pos : vendasStyles.neg}`}>
+                     {formatVariation(kpis.ticketMedio.variacao)}
+                   </span>
+                 </div>
+                 <div className={vendasStyles['kpi-secondary-row']} style={{marginTop: '8px'}}>
                    <span className={vendasStyles['kpi-secondary-value']}>{kpis.clientesUnicos.valor.toLocaleString('pt-BR')} clientes</span>
-                                     <span className={`${vendasStyles['kpi-variation-inline']} ${kpis.clientesUnicos.variacao >= 0 ? vendasStyles.pos : vendasStyles.neg}`}>
-                    {formatVariation(kpis.clientesUnicos.variacao, true)}
-                  </span>
+                   <span className={`${vendasStyles['kpi-variation-inline']} ${kpis.clientesUnicos.variacao >= 0 ? vendasStyles.pos : vendasStyles.neg}`}>
+                     {formatVariation(kpis.clientesUnicos.variacao, true)}
+                   </span>
                  </div>
                </div>
           </div>
@@ -1900,7 +1991,7 @@ export default function VendasDashboard() {
                <div className={`${vendasStyles['kpi-sub']} ${kpis.faturamentoAnual.variacao >= 0 ? vendasStyles.pos : vendasStyles.neg}`}>
                  {formatVariation(kpis.faturamentoAnual.variacao)} vs {new Date().getFullYear() - 1}
                </div>
-               <div className={vendasStyles['kpi-foot']}>Projeção: <strong>{formatK(kpis.faturamentoAnual.projecao)}</strong></div>
+               <div className={vendasStyles['kpi-foot']}>Projeção: <strong>{formatK(kpis.faturamentoAnual.projecao ?? 0)}</strong></div>
           </div>
         </section>
          )}
@@ -1922,13 +2013,13 @@ export default function VendasDashboard() {
                 <canvas id="chart-clientes"></canvas>
               </div>
               <ul className={vendasStyles['topcli-legend']}>
-                {chartData?.topClientes.map((cliente: any, index: number) => {
-                  const totalPeriodo = chartData.topClientes.reduce((sum: number, c: any) => sum + c.valor, 0) || 1;
-                  const pct = (cliente.valor / totalPeriodo * 100) || 0;
+                {chartData?.topClientes.map((cliente: TopItem, index: number) => {
+                  const totalPeriodo = chartData.topClientes.reduce((sum: number, c: TopItem) => sum + c.valor, 0) || 1;
+                  const pct = ((cliente.valor ?? 0) / totalPeriodo * 100) || 0;
                   
                   // Lógica de seleção especial para "Outros"
                   let isSelected = false;
-                  if (cliente.cliente === 'Outros') {
+                  if ((cliente.cliente ?? '') === 'Outros') {
                     // Para "Outros", verificar se está filtrando pelos clientes que não estão no Top 5
                     const clienteMap = new Map<string, number>();
                     filteredData.forEach(row => {
@@ -1942,17 +2033,17 @@ export default function VendasDashboard() {
                       outrosClients.every(client => selectedClients.includes(client));
                   } else {
                     // Para clientes específicos, verificar se é o único selecionado
-                    isSelected = selectedClients.length === 1 && selectedClients[0] === cliente.cliente;
+                    isSelected = selectedClients.length === 1 && selectedClients[0] === (cliente.cliente ?? '');
                   }
                   return (
                     <li 
-                      key={cliente.cliente}
+                      key={cliente.cliente ?? ''}
                       onClick={() => {
                         try {
                           let newSelectedClients: string[];
                           
                           // Tratamento especial para "Outros"
-                          if (cliente.cliente === 'Outros') {
+                          if ((cliente.cliente ?? '') === 'Outros') {
                             // Obter lista de todos os clientes que não estão no Top 5
                             const clienteMap = new Map<string, number>();
                             filteredData.forEach(row => {
@@ -1982,7 +2073,7 @@ export default function VendasDashboard() {
                               newSelectedClients = [];
                             } else {
                               // Selecionar apenas o cliente clicado
-                              newSelectedClients = [cliente.cliente];
+                              newSelectedClients = [cliente.cliente ?? ''];
                             }
                           }
                           
@@ -2007,9 +2098,9 @@ export default function VendasDashboard() {
                       }}
                     >
                       <span className={vendasStyles.dot} style={{backgroundColor: cliente.cor}}></span>
-                      <span>{cliente.cliente}</span>
+                      <span>{cliente.cliente ?? ''}</span>
                       <span>{Math.round(cliente.valor / 1000)}k ({pct.toFixed(0)}%)</span>
-                      <span className={vendasStyles['margem-bruta']}>MB: {cliente.margemBruta}%</span>
+                      <span className={vendasStyles['margem-bruta']}>MB: {cliente.margemBruta ?? 0}%</span>
                     </li>
                   );
                 })}
@@ -2028,13 +2119,13 @@ export default function VendasDashboard() {
                 <canvas id="chart-produtos"></canvas>
                         </div>
               <ul className={vendasStyles['topcli-legend']}>
-                {chartData?.topProdutos?.map((produto: any, index: number) => {
-                  const totalPeriodo = chartData.topProdutos.reduce((sum: number, p: any) => sum + p.valor, 0) || 1;
-                  const pct = (produto.valor / totalPeriodo * 100) || 0;
+                {chartData?.topProdutos?.map((produto: TopItem, index: number) => {
+                  const totalPeriodo = chartData.topProdutos.reduce((sum: number, p: TopItem) => sum + p.valor, 0) || 1;
+                  const pct = ((produto.valor ?? 0) / totalPeriodo * 100) || 0;
                   
                   // Lógica de seleção especial para "Outros"
                   let isSelected = false;
-                  if (produto.produto === 'Outros') {
+                  if ((produto.produto ?? '') === 'Outros') {
                     // Para "Outros", verificar se está filtrando pelos produtos que não estão no Top 5
                     const produtoMap = new Map<string, number>();
                     filteredData.forEach(row => {
@@ -2050,17 +2141,17 @@ export default function VendasDashboard() {
                       outrosProdutos.every(prod => selectedProducts.includes(prod));
                   } else {
                     // Para produtos específicos, verificar se é o único selecionado
-                    isSelected = selectedProducts.length === 1 && selectedProducts[0] === produto.produto;
+                    isSelected = selectedProducts.length === 1 && selectedProducts[0] === (produto.produto ?? '');
                   }
                   return (
                     <li 
-                      key={produto.produto}
+                      key={produto.produto ?? ''}
                       onClick={() => {
                         try {
                           let newSelectedProducts: string[];
                           
                           // Tratamento especial para "Outros"
-                          if (produto.produto === 'Outros') {
+                          if ((produto.produto ?? '') === 'Outros') {
                             // Obter lista de todos os produtos que não estão no Top 5
                             const produtoMap = new Map<string, number>();
                             filteredData.forEach(row => {
@@ -2092,7 +2183,7 @@ export default function VendasDashboard() {
                               newSelectedProducts = [];
                             } else {
                               // Selecionar apenas o produto clicado
-                              newSelectedProducts = [produto.produto];
+                              newSelectedProducts = [produto.produto ?? ''];
                             }
                           }
                           
@@ -2120,16 +2211,16 @@ export default function VendasDashboard() {
                       <div style={{flex: 1, minWidth: 0}}>
                         {/* Primeira linha: Título + PMP e CMP */}
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px'}}>
-                          <div style={{fontWeight: '600', color: 'var(--text)'}}>{produto.produto}</div>
+                          <div style={{fontWeight: '600', color: 'var(--text)'}}>{produto.produto ?? ''}</div>
                           <div style={{display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px'}}>
-                            <span className={vendasStyles['preco-medio']} style={{color: 'var(--accent)', fontWeight: '500'}}>PMP: {(produto.precoMedioPorPacote || 0).toFixed(2)}</span>
-                            <span className={vendasStyles['custo-medio']} style={{color: 'var(--accent)', fontWeight: '500'}}>CMP: {(produto.custoMedioPorPacote || 0).toFixed(2)}</span>
+                            <span className={vendasStyles['preco-medio']} style={{color: 'var(--accent)', fontWeight: '500'}}>PMP: {(produto.precoMedioPorPacote ?? 0).toFixed(2)}</span>
+                            <span className={vendasStyles['custo-medio']} style={{color: 'var(--accent)', fontWeight: '500'}}>CMP: {(produto.custoMedioPorPacote ?? 0).toFixed(2)}</span>
                           </div>
                         </div>
                         {/* Segunda linha: Valor, pacotes e MB */}
                         <div style={{fontSize: '11px', color: 'var(--muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span>{Math.round(produto.valor / 1000)}k ({pct.toFixed(0)}%) • {formatK(produto.pacotesTotal || 0)} pacotes</span>
-                          <span className={vendasStyles['margem-bruta']} style={{color: 'var(--accent)', fontWeight: '500'}}>MB: {Math.round(produto.margemBruta)}%</span>
+                          <span>{Math.round(produto.valor / 1000)}k ({pct.toFixed(0)}%) • {formatK(produto.pacotesTotal ?? 0)} pacotes</span>
+                          <span className={vendasStyles['margem-bruta']} style={{color: 'var(--accent)', fontWeight: '500'}}>MB: {Math.round(produto.margemBruta ?? 0)}%</span>
                         </div>
                       </div>
                     </li>
@@ -2148,7 +2239,7 @@ export default function VendasDashboard() {
               <div>
                                   <div className={vendasStyles['kpi-label']}>Quem mais cresceu</div>
                   <ul className={vendasStyles.rank}>
-                  {chartData?.rankingUp.map((item: any) => (
+                  {chartData?.rankingUp.map((item: RankingItem) => (
                     <li 
                       key={item.cliente}
                       onClick={() => handleClientClick(item.cliente)}
@@ -2156,7 +2247,7 @@ export default function VendasDashboard() {
                       className={selectedClients.includes(item.cliente) ? 'selected' : ''}
                     >
                       <span>{item.cliente}</span>
-                      <span className={vendasStyles.pos}>+{formatK(item.delta)} ({Math.round(item.pct || 0)}%)</span>
+                      <span className={vendasStyles.pos}>+{formatK(item.delta ?? 0)} ({Math.round(item.pct ?? 0)}%)</span>
                     </li>
                   ))}
                 </ul>
@@ -2164,7 +2255,7 @@ export default function VendasDashboard() {
                       <div>
                  <div className={vendasStyles['kpi-label']}>Quem mais caiu</div>
                  <ul className={vendasStyles.rank}>
-                   {chartData?.rankingDown.map((item: any) => (
+                   {chartData?.rankingDown.map((item: RankingItem) => (
                      <li 
                        key={item.cliente}
                        onClick={() => handleClientClick(item.cliente)}
@@ -2172,7 +2263,7 @@ export default function VendasDashboard() {
                        className={selectedClients.includes(item.cliente) ? 'selected' : ''}
                      >
                        <span>{item.cliente}</span>
-                       <span className={vendasStyles.neg}>{formatK(item.delta)} ({Math.round(item.pct || 0)}%)</span>
+                       <span className={vendasStyles.neg}>{formatK(item.delta ?? 0)} ({Math.round(item.pct ?? 0)}%)</span>
                     </li>
                   ))}
           </ul>
@@ -2324,7 +2415,7 @@ export default function VendasDashboard() {
                   <thead>
                     <tr>
                       {/* Detectar se é por produto ou por cliente */}
-                      <th>{(modalData && modalData[0] && (modalData[0] as any).produto !== undefined) ? 'Produto' : 'Cliente'}</th>
+                      <th>{(modalData && modalData[0] && 'produto' in modalData[0]) ? 'Produto' : 'Cliente'}</th>
                       <th>Unidades</th>
                       <th>Pacotes</th>
                       <th>Caixas</th>
@@ -2335,7 +2426,7 @@ export default function VendasDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {modalData.map((item: any, index: number) => {
+                    {modalData.map((item: ModalData, index: number) => {
                       const key = item.produto ?? item.cliente ?? '-';
                       const unidades = item.unidades ?? 0;
                       const pacotes = item.pacotes ?? 0;

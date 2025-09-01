@@ -57,7 +57,7 @@ export async function GET(
       return NextResponse.json({ error: 'Erro ao buscar column_mappings', details: mapErr.message }, { status: 500 });
     }
 
-    const logicals = (mappings || []).map(m => normalizeLogicalName((m as any).logical_name));
+    const logicals = (mappings || []).map(m => normalizeLogicalName((m as { logical_name: string }).logical_name));
 
     // Aceitar variações (singular/plural/pt-en)
     const hasPackages = logicals.some(l => ['packages', 'package', 'pacotes', 'pacote'].includes(l));
