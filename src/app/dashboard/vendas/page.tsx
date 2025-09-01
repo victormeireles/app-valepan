@@ -1350,12 +1350,16 @@ export default function VendasDashboard() {
         if (!points || points.length === 0) return;
         const idx = points[0].index;
         
-        // Construir mapa de totais e última compra por cliente
+        // Construir mapa completo de dados por cliente
         const buildMapTotalELast = (dataset: ProductSaleRow[]) => {
-          const map = new Map<string, { total: number; last: Date }>();
+          const map = new Map<string, {unidades:number,pacotes:number,caixas:number,valor:number,cmv:number,last:Date}>();
           for (const r of dataset) {
-            const cur = map.get(r.cliente) || { total: 0, last: new Date(0) };
-            cur.total += r.valorTotal;
+            const cur = map.get(r.cliente) || {unidades:0,pacotes:0,caixas:0,valor:0,cmv:0,last:new Date(0)};
+            cur.unidades += r.quantidade || 0;
+            cur.pacotes += r.pacotes || 0;
+            cur.caixas += r.caixas || 0;
+            cur.valor += r.valorTotal || 0;
+            cur.cmv += r.custoTotal || 0;
             if (r.data > cur.last) cur.last = r.data;
             map.set(r.cliente, cur);
           }
@@ -1381,11 +1385,27 @@ export default function VendasDashboard() {
         }
         
         const list = Array.from(setRef || [])
-          .map(c => ({
-            cliente: String(c),
-            total: mapAll.get(String(c))?.total || 0,
-            last: mapAll.get(String(c))?.last || new Date(0)
-          }))
+          .map(c => {
+            const data = mapAll.get(String(c)) || {unidades:0,pacotes:0,caixas:0,valor:0,cmv:0,last:new Date(0)};
+            const mb = data.valor > 0 ? Math.max(-100, Math.min(100, (1 - data.cmv/data.valor)*100)) : 0;
+            
+            // Calcular PMP/CMP ou PMV/CMV baseado em meta.hasPackages
+            const pmp = meta?.hasPackages ? (data.pacotes > 0 ? data.valor/data.pacotes : 0) : (data.unidades > 0 ? data.valor/data.unidades : 0);
+            const cmp = meta?.hasPackages ? (data.pacotes > 0 ? data.cmv/data.pacotes : 0) : (data.unidades > 0 ? data.cmv/data.unidades : 0);
+            
+            return {
+              cliente: String(c),
+              unidades: data.unidades,
+              pacotes: data.pacotes,
+              caixas: data.caixas,
+              valor: data.valor,
+              cmv: data.cmv,
+              mb: mb,
+              pmp: pmp,
+              cmp: cmp,
+              last: data.last
+            };
+          })
           .sort((a, b) => b.last.getTime() - a.last.getTime());
         
         // Abrir modal
@@ -2434,12 +2454,12 @@ export default function VendasDashboard() {
                       {/* Detectar se é por produto ou por cliente */}
                       <th>{(modalData && modalData[0] && 'produto' in modalData[0]) ? 'Produto' : 'Cliente'}</th>
                       <th>Unidades</th>
-                      <th>Pacotes</th>
-                      <th>Caixas</th>
+                      {meta?.hasPackages && <th>Pacotes</th>}
+                      {meta?.hasBoxes && <th>Caixas</th>}
                       <th>Valor</th>
                       <th>Margem Bruta</th>
-                      <th>PMP</th>
-                      <th>CMP</th>
+                      <th>{meta?.hasPackages ? 'PMP' : 'PMV'}</th>
+                      <th>{meta?.hasPackages ? 'CMP' : 'CMV'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2450,14 +2470,17 @@ export default function VendasDashboard() {
                       const caixas = item.caixas ?? 0;
                       const valor = item.valor ?? 0;
                       const mb = typeof item.mb === 'number' ? Math.round(item.mb) : 0;
-                      const pmp = item.pmp ?? 0;
-                      const cmp = item.cmp ?? 0;
+                      
+                      // Calcular PMP/CMP ou PMV/CMV baseado em meta.hasPackages
+                      const pmp = meta?.hasPackages ? (item.pmp ?? 0) : (unidades > 0 ? valor / unidades : 0);
+                      const cmp = meta?.hasPackages ? (item.cmp ?? 0) : (unidades > 0 ? (item.cmv ?? 0) / unidades : 0);
+                      
                       return (
                         <tr key={index}>
                           <td>{key}</td>
                           <td className={vendasStyles.amount}>{unidades.toLocaleString('pt-BR')}</td>
-                          <td className={vendasStyles.amount}>{formatK(pacotes)}</td>
-                          <td className={vendasStyles.amount}>{caixas.toLocaleString('pt-BR')}</td>
+                          {meta?.hasPackages && <td className={vendasStyles.amount}>{formatK(pacotes)}</td>}
+                          {meta?.hasBoxes && <td className={vendasStyles.amount}>{caixas.toLocaleString('pt-BR')}</td>}
                           <td className={vendasStyles.amount}>{valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                           <td className={vendasStyles.amount}>{mb}%</td>
                           <td className={vendasStyles.amount}>{pmp.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
