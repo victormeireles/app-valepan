@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
+import { useTenant } from "@/hooks/useTenant";
 
 type NavItem = {
   href?: string;
@@ -21,6 +22,7 @@ const Icon = ({ children }: { children: React.ReactNode }) => (
 export default function Sidebar() {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
+  const { tenantName } = useTenant();
 
   const nav: NavItem[] = [
     { href: "/", label: "Home", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></Icon> },
@@ -38,7 +40,7 @@ export default function Sidebar() {
       <div className="sb-inner">
         <div className="sb-brand">
           <div className="logo">▰▰</div>
-          {expanded && <div className="brand-text">Valepan</div>}
+          {expanded && <div className="brand-text">{tenantName}</div>}
         </div>
 
         <nav className="sb-nav">

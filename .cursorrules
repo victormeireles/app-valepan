@@ -1,0 +1,43 @@
+# CSS Organization Rules
+
+## NEVER put CSS directly in .tsx files
+- All CSS must be in separate .css files
+- Use CSS Modules (.module.css) for component-specific styles
+- Use globals.css only for truly global styles
+
+## CSS File Organization:
+- `src/styles/globals.css` - Global styles, CSS variables, resets
+- `src/styles/[component].module.css` - Component-specific styles
+- `src/styles/[feature].module.css` - Feature-specific styles
+
+## Before adding any CSS:
+1. Evaluate if it's truly global → use globals.css
+2. Is it component-specific → use [component].module.css
+3. Is it feature-specific → use [feature].module.css
+4. NEVER inline styles in JSX unless absolutely necessary
+
+## Examples:
+✅ Good:
+```css
+/* In globals.css */
+:root {
+  --primary-color: #e67e22;
+}
+```
+
+```css
+/* In vendas.module.css */
+.kpi {
+  background: var(--primary-color);
+}
+```
+
+❌ Bad:
+```tsx
+<div style={{background: '#e67e22'}}>
+```
+
+## Always ask before adding CSS:
+- "Should this go in globals.css or a module?"
+- "Is this style reusable across components?"
+- "Can this be achieved with CSS variables?"s

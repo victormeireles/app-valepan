@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 
 const authConfig = {
 	secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
@@ -27,23 +28,52 @@ const authConfig = {
 	basePath: "/api/auth",
 	callbacks: {
 		// @ts-expect-error - NextAuth v5 callback typing
-		async jwt({ token, account, trigger }) {
-			// Debug: Log do que está vindo
-			console.log('[JWT Callback] Trigger:', trigger);
-			console.log('[JWT Callback] Token:', token);
-			console.log('[JWT Callback] Account:', account);
-			
-			// Primeira vez (login) - salvar tokens
+		async jwt({ token, account, trigger, user }) {
+			// Primeira vez (login) - salvar tokens e dados do tenant
 			if (account) {
-				console.log('[JWT Callback] Account keys:', Object.keys(account));
-				console.log('[JWT Callback] Access Token:', account.access_token);
-				console.log('[JWT Callback] Refresh Token:', account.refresh_token);
-				
 				token.accessToken = account.access_token;
 				token.refreshToken = account.refresh_token;
 				token.expiresAt = account.expires_at;
 				
-				console.log('[JWT Callback] Tokens salvos - expires at:', new Date((account.expires_at || 0) * 1000));
+				// Buscar tenant do membro pelo e-mail
+				try {
+					const email = (user?.email as string | undefined)?.toLowerCase();
+					if (email) {
+						const supabase = getSupabaseAdminClient();
+						// Primeiro, buscar o tenant_id do membro
+						const { data: memberData, error: memberError } = await supabase
+							.from('tenant_members')
+							.select('tenant_id')
+							.ilike('email', email)
+							.limit(1)
+							.maybeSingle();
+
+						if (memberError) {
+							console.error('[JWT Callback] Erro ao buscar tenant_id do membro:', memberError);
+						} else if (memberData && memberData.tenant_id) {
+							const tenantId = memberData.tenant_id;
+							
+							// Agora buscar o nome do tenant
+							const { data: tenantData, error: tenantError } = await supabase
+								.from('tenants')
+								.select('name')
+								.eq('id', tenantId)
+								.limit(1)
+								.maybeSingle();
+
+							if (tenantError) {
+								console.error('[JWT Callback] Erro ao buscar nome do tenant:', tenantError);
+							} else if (tenantData && tenantData.name) {
+								const tenantName = tenantData.name;
+								token.tenantId = tenantId;
+								token.tenantName = tenantName;
+							}
+						}
+					}
+				} catch (err) {
+					console.error('[JWT Callback] Exceção ao buscar tenant do membro:', err);
+				}
+				
 				return token;
 			}
 			
@@ -53,21 +83,14 @@ const authConfig = {
 			
 			// Se ainda tem pelo menos 5 minutos, usar token atual
 			if (expiresAt > now + 300) {
-				console.log('[JWT Callback] Token ainda válido por', Math.round((expiresAt - now) / 60), 'minutos');
 				return token;
 			}
 			
-			// Token expirado ou expirando - tentar refresh
-			console.log('[JWT Callback] Token expirado/expirando, tentando refresh...');
-			
 			if (!token.refreshToken) {
-				console.log('[JWT Callback] Sem refresh token disponível');
 				return token;
 			}
 			
 			try {
-				console.log('[JWT Callback] Iniciando refresh do token...');
-				
 				const response = await fetch('https://oauth2.googleapis.com/token', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -82,9 +105,6 @@ const authConfig = {
 				if (response.ok) {
 					const refreshed = await response.json();
 					const newExpiresAt = Math.floor(Date.now() / 1000) + refreshed.expires_in;
-					
-					console.log('[JWT Callback] ✅ Token renovado com sucesso!');
-					console.log('[JWT Callback] Novo token válido até:', new Date(newExpiresAt * 1000));
 					
 					return {
 						...token,
@@ -114,27 +134,37 @@ const authConfig = {
 		},
 		// @ts-expect-error - NextAuth v5 callback typing
 		async session({ session, token }) {
-			// Debug: Log do que está vindo
-			console.log('[Session Callback] Session:', session);
-			console.log('[Session Callback] Token:', token);
-			
-			// Passar o access token para a sessão
+			// Passar tokens e tenant para a sessão
 			session.accessToken = token.accessToken as string;
+			session.tenantId = token.tenantId as string | undefined;
+			session.tenantName = token.tenantName as string | undefined;
 			
-			console.log('[Session Callback] Session final:', session);
 			return session;
 		},
 		// @ts-expect-error - NextAuth v5 callback typing
 		async signIn({ user }) {
-			const allowed = (process.env.AUTH_ALLOWED_EMAILS ?? "")
-				.split(",")
-				.map((e) => e.trim().toLowerCase())
-				.filter(Boolean);
-
 			const email = (user?.email as string)?.toLowerCase();
 			if (!email) return false;
-			if (allowed.length === 0) return true;
-			return allowed.includes(email);
+
+			try {
+				const supabase = getSupabaseAdminClient();
+				const { data, error } = await supabase
+					.from("tenant_members")
+					.select("id")
+					.ilike("email", email)
+					.limit(1)
+					.maybeSingle();
+
+				if (error) {
+					console.error("[signIn] Erro consultando tenant_members:", error);
+					return false;
+				}
+
+				return !!data;
+			} catch (err) {
+				console.error("[signIn] Exceção ao validar no Supabase:", err);
+				return false;
+			}
 		},
 		// @ts-expect-error - NextAuth v5 callback typing
 		authorized({ auth, request: { nextUrl } }) {

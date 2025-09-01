@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
-import "./globals.css";
+import "@/styles/globals.css";
 import ConditionalLayout from "@/components/ConditionalLayout";
 
 const geistSans = Geist({
@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Valepan Dashboard",
+  title: "Dashboard",
   description: "Dashboard operacional e gerencial para fábrica de pães",
 };
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
+import { useTenant } from "@/hooks/useTenant";
 
 type NavItem = {
   href?: string;
@@ -16,6 +17,7 @@ export default function MobileMenu() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const { tenantName } = useTenant();
 
   const nav: NavItem[] = [
     { href: "/", label: "Home", icon: "home" },
@@ -82,7 +84,7 @@ export default function MobileMenu() {
         <div className="mobile-menu-header">
           <div className="mobile-brand">
             <div className="mobile-logo">▰▰</div>
-            <span className="mobile-brand-text">Valepan</span>
+            <span className="mobile-brand-text">{tenantName}</span>
           </div>
           <button 
             className="mobile-close-btn"

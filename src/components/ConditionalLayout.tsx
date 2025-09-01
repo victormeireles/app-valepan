@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import MobileMenu from "./MobileMenu";
+import DynamicTitle from "./DynamicTitle";
 
 export default function ConditionalLayout({
   children,
@@ -28,6 +29,8 @@ export default function ConditionalLayout({
   if (shouldShowNav) {
     return (
       <div className="app-shell">
+        {/* Título dinâmico baseado no tenant */}
+        <DynamicTitle />
         {/* Menu mobile (hamburger + drawer) - sempre presente, visível apenas em mobile via CSS */}
         <MobileMenu />
         {/* Sidebar (desktop) - oculto em mobile via CSS */}

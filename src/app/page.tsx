@@ -579,7 +579,7 @@ export default function Home() {
       <header className="app-header">
         <div className="header-left">
           <div className="brand">
-            <span>Vale</span>pan Dashboard
+            <span>{session?.tenantName ?? ''}</span> Dash
           </div>
         </div>
         <div className="header-right">

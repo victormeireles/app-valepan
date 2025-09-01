@@ -84,6 +84,20 @@ export async function fetchSheetData(dashboard: string = 'vendas') {
   }
 }
 
+// Meta das planilhas por tenant (flags de presença de colunas)
+export type SheetMeta = {
+  hasPackages: boolean;
+  hasBoxes: boolean;
+};
+
+export async function fetchSheetMeta(dashboard: string = 'vendas'): Promise<SheetMeta> {
+  const res = await fetch(`/api/sheets/meta/${dashboard}`);
+  if (!res.ok) {
+    throw new Error('Falha ao carregar metadados da planilha');
+  }
+  return res.json();
+}
+
 // Função para normalizar os dados da planilha (não utilizada atualmente)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function normalizeRows(values: string[][]): SheetRow[] {
