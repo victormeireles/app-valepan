@@ -121,6 +121,12 @@ export default function VendasDashboard() {
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [modalData, setModalData] = useState<ModalData[]>([]);
+  
+  // Estados para filtro de períodos de engajamento
+  const [showEngagementFilter, setShowEngagementFilter] = useState(false);
+  const [quaseInativoMeses, setQuaseInativoMeses] = useState(1); // 1 mês = ~30 dias
+  const [inativoMeses, setInativoMeses] = useState(2); // 2 meses = ~60 dias
+  const [maxPeriodoMeses, setMaxPeriodoMeses] = useState(6); // 6 meses máximo
   // Drilldown substituído por selects dedicados
   const [selectCliente, setSelectCliente] = useState<string>('');
   const [selectProduto, setSelectProduto] = useState<string>('');
@@ -286,12 +292,20 @@ export default function VendasDashboard() {
       prevStartDate = new Date(startDate.getFullYear(), startMonth - 1, 1);
       prevEndDate = new Date(startDate.getFullYear(), startMonth, 0); // Último dia do mês anterior
       compareLabel = 'mês anterior';
+      
+      // Garantir que as datas estão corretas
+      prevStartDate.setHours(0, 0, 0, 0);
+      prevEndDate.setHours(23, 59, 59, 999);
     }
     // Caso 2: date-from = dia 1 e mesmo mês
     else if (startDay === 1 && startMonth === endMonth) {
       prevStartDate = new Date(startDate.getFullYear(), startMonth - 1, 1);
       prevEndDate = new Date(startDate.getFullYear(), startMonth - 1, endDay);
       compareLabel = 'mês anterior';
+      
+      // Garantir que as datas estão corretas
+      prevStartDate.setHours(0, 0, 0, 0);
+      prevEndDate.setHours(23, 59, 59, 999);
     }
     // Caso 3: Regra padrão
     else {
@@ -300,6 +314,10 @@ export default function VendasDashboard() {
       prevEndDate.setDate(prevEndDate.getDate() - 1);
       prevStartDate = new Date(prevEndDate);
       prevStartDate.setDate(prevStartDate.getDate() - daysDiff + 1);
+      
+      // Garantir que as datas estão corretas
+      prevStartDate.setHours(0, 0, 0, 0);
+      prevEndDate.setHours(23, 59, 59, 999);
       
       // Determinar compareLabel baseado no período
       if (daysDiff === 7) {
@@ -314,6 +332,15 @@ export default function VendasDashboard() {
     const previousData = allData.filter(row => 
       row.data >= prevStartDate && row.data <= prevEndDate
     );
+    
+    // Validação: garantir que os períodos não se sobreponham
+    const hasOverlap = currentData.some(row => 
+      row.data >= prevStartDate && row.data <= prevEndDate
+    );
+    
+    if (hasOverlap) {
+      console.warn('Aviso: Períodos atual e anterior se sobrepõem. Verificar lógica de datas.');
+    }
 
     // Valores atuais
     const faturamentoAtual = currentData.reduce((sum, row) => sum + row.valorTotal, 0);
@@ -340,8 +367,19 @@ export default function VendasDashboard() {
     const caixasAnterior = previousData.reduce((sum, row) => sum + (row.caixas || 0), 0);
 
     // Calcular variações
-    const calcVariacao = (atual: number, anterior: number) => 
-      anterior > 0 ? ((atual - anterior) / anterior) * 100 : 0;
+    const calcVariacao = (atual: number, anterior: number) => {
+      if (anterior <= 0) return 0;
+      const variacao = ((atual - anterior) / anterior) * 100;
+      // Arredondar para 1 casa decimal para evitar problemas de precisão
+      return Math.round(variacao * 10) / 10;
+    };
+
+    // Calcular pontos percentuais (para margem bruta)
+    const calcPontosPercentuais = (atual: number, anterior: number) => {
+      const pontos = atual - anterior;
+      // Arredondar para 1 casa decimal
+      return Math.round(pontos * 10) / 10;
+    };
 
     // Calcular ticket médio
     const ticketMedioAtual = pedidosAtual > 0 ? faturamentoAtual / pedidosAtual : 0;
@@ -396,7 +434,7 @@ export default function VendasDashboard() {
         },
         margemBruta: { 
           valor: margemBrutaAtual,
-          variacao: calcVariacao(margemBrutaAtual, margemBrutaAnterior)
+          variacao: calcPontosPercentuais(margemBrutaAtual, margemBrutaAnterior)
         },
         clientesUnicos: { 
           valor: clientesUnicosAtual,
@@ -689,43 +727,68 @@ export default function VendasDashboard() {
       .sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0)) // Ordenar do mais negativo para o menos negativo (maior queda em absoluto primeiro)
       .slice(0, 5);
 
-    // Engajamento baseado em períodos específicos (como no original)
-    // - Ativos: compras entre [endDate]-13 e [endDate]
-    // - Quase inativo: entre [endDate]-27 e [endDate]-14 (exclusivo de Ativos)
-    // - Inativos: entre [endDate]-55 e [endDate]-28 (exclusivo anterior)
+    // Lógica de engajamento corrigida baseada em date-to
     const msDay = 24 * 60 * 60 * 1000;
-    const endTo = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
-    const actStart = new Date(endTo.getTime() - 13 * msDay);
-    const quasiStart = new Date(endTo.getTime() - 27 * msDay);
-    const quasiEnd = new Date(endTo.getTime() - 14 * msDay);
-    const inaStart = new Date(endTo.getTime() - 55 * msDay);
-    const inaEnd = new Date(endTo.getTime() - 28 * msDay);
-
+    const dateTo = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
+    
+    // Calcular datas de corte baseado em date-to
+    const quaseInativoDias = quaseInativoMeses * 30; // 1 mês = 30 dias
+    const inativoDias = inativoMeses * 30; // 2 meses = 60 dias
+    const maxPeriodoDias = maxPeriodoMeses * 30; // 6 meses = 180 dias
+    
+    const dateToMinus1Month = new Date(dateTo.getTime() - quaseInativoDias * msDay);
+    const dateToMinus2Months = new Date(dateTo.getTime() - inativoDias * msDay);
+    const dateToMinus6Months = new Date(dateTo.getTime() - maxPeriodoDias * msDay);
+    
     // Usar filteredData se houver filtro de cliente, senão usar allData
     const dataToUse = filteredData.length < allData.length ? filteredData : allData;
     
-    const rowsActive = dataToUse.filter(r => r.data >= actStart && r.data <= endTo);
-    
-    // Novos: clientes cuja primeira compra na história ocorreu dentro do período selecionado
+    // Calcular primeira compra na história por cliente
     const firstByClient = new Map();
     for (const r of allData) {
       const prev = firstByClient.get(r.cliente);
       if (!prev || r.data < prev) firstByClient.set(r.cliente, r.data);
     }
-    const setNovos = new Set();
-    for (const r of filteredData) {
-      const first = firstByClient.get(r.cliente);
-      if (first && first >= startDate && first <= endDate) setNovos.add(r.cliente);
+    
+    // Calcular última compra por cliente
+    const lastPurchaseByClient = new Map();
+    for (const r of allData) {
+      const prev = lastPurchaseByClient.get(r.cliente);
+      if (!prev || r.data > prev) lastPurchaseByClient.set(r.cliente, r.data);
     }
     
-    const rowsQuasiRange = dataToUse.filter(r => r.data >= quasiStart && r.data <= quasiEnd);
-    const rowsInactiveRange = dataToUse.filter(r => r.data >= inaStart && r.data <= inaEnd);
-
-    const setAtivos = new Set(rowsActive.map(r => r.cliente));
-    const setQuasiRange = new Set(rowsQuasiRange.map(r => r.cliente));
-    const setInactiveRange = new Set(rowsInactiveRange.map(r => r.cliente));
-    const setQuase = new Set(Array.from(setQuasiRange).filter(c => !setAtivos.has(c)));
-    const setInativos = new Set(Array.from(setInactiveRange).filter(c => !setAtivos.has(c) && !setQuase.has(c)));
+    // Classificar clientes baseado na lógica corrigida
+    const setNovos = new Set();
+    const setAtivos = new Set();
+    const setQuase = new Set();
+    const setInativos = new Set();
+    
+    for (const cliente of new Set(dataToUse.map(r => r.cliente))) {
+      const lastPurchase = lastPurchaseByClient.get(cliente);
+      const firstPurchase = firstByClient.get(cliente);
+      
+      if (!lastPurchase) continue;
+      
+      // Caso 1: última compra > date-to - 1 mês and última compra <= date-to
+      if (lastPurchase > dateToMinus1Month && lastPurchase <= dateTo) {
+        // 1.1: se primeira compra na história > date-to - 1 mês: novos
+        if (firstPurchase > dateToMinus1Month) {
+          setNovos.add(cliente);
+        } else {
+          // 1.2: senão, ativos
+          setAtivos.add(cliente);
+        }
+      }
+      // Caso 2: não entrou no caso 1, mas última compra > date-to - 2 meses
+      else if (lastPurchase > dateToMinus2Months) {
+        setQuase.add(cliente);
+      }
+      // Caso 3: não entrou no caso 1 nem 2, mas última compra > date-to - 6 meses
+      else if (lastPurchase > dateToMinus6Months) {
+        setInativos.add(cliente);
+      }
+      // Caso 4: senão, nem entra no dashboard (perdidos)
+    }
 
     // Ativos devem EXCLUIR os Novos
     const setAtivosSemNovos = new Set(Array.from(setAtivos).filter(c => !setNovos.has(c)));
@@ -1378,10 +1441,10 @@ export default function VendasDashboard() {
           title = 'Ativos (compraram no período)';
         } else if (idx === 2) {
           setRef = chartData.engajamento.sets.quaseInativos;
-          title = 'Quase inativo (últimos 30 dias antes do período)';
+          title = `Quase inativo (última compra entre ${quaseInativoMeses + 1}-${inativoMeses} meses atrás)`;
     } else {
           setRef = chartData.engajamento.sets.inativos;
-          title = 'Inativos (31–60 dias antes do período)';
+          title = `Inativos (última compra entre ${inativoMeses + 1}-${maxPeriodoMeses} meses atrás)`;
         }
         
         const list = Array.from(setRef || [])
@@ -1587,11 +1650,14 @@ export default function VendasDashboard() {
   };
 
   // Função helper para formatar variações percentuais
-  const formatVariation = (value: number, isInteger: boolean = false) => {
+  const formatVariation = (value: number, isInteger: boolean = false, isPercentagePoints: boolean = false) => {
     const absValue = Math.abs(value);
     if (isInteger) {
       // Para números inteiros (como clientes únicos), sempre 0 casas decimais
       return `${value >= 0 ? '+' : ''}${Math.round(value)}`;
+    } else if (isPercentagePoints) {
+      // Para pontos percentuais (como margem bruta)
+      return `${value >= 0 ? '+' : ''}${value.toFixed(1)}pp`;
     } else if (absValue < 5) {
       return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
     } else {
@@ -1945,7 +2011,7 @@ export default function VendasDashboard() {
                <div className={vendasStyles['kpi-label']}>Margem bruta</div>
                <div className={vendasStyles['kpi-value']}>{formatNumber(kpis.margemBruta.valor, '%')}</div>
                <div className={`${vendasStyles['kpi-sub']} ${kpis.margemBruta.variacao >= 0 ? vendasStyles.pos : vendasStyles.neg}`}>
-                 {formatVariation(kpis.margemBruta.variacao)} vs {kpis.compareLabel || 'mês anterior'}
+                 {formatVariation(kpis.margemBruta.variacao, false, true)} vs {kpis.compareLabel || 'mês anterior'}
                </div>
           </div>
           
@@ -2308,7 +2374,16 @@ export default function VendasDashboard() {
                       </div>
         </div>
                      <div className={vendasStyles.card}>
-             <h3>Engajamento de clientes</h3>
+             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
+               <h3>Engajamento de clientes</h3>
+               <button 
+                 className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`}
+                 onClick={() => setShowEngagementFilter(true)}
+                 style={{fontSize: '12px', padding: '6px 12px'}}
+               >
+                 Configurar Períodos
+               </button>
+             </div>
              <div className={vendasStyles['eng-visual']} style={{height: '280px', position: 'relative', overflow: 'hidden'}}>
                <canvas id="chart-eng" height="280"></canvas>
             </div>
@@ -2490,6 +2565,125 @@ export default function VendasDashboard() {
                     })}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Modal de Filtro de Engajamento */}
+      {showEngagementFilter && (
+        <>
+          <div className={vendasStyles['modal-overlay']} onClick={() => setShowEngagementFilter(false)}></div>
+          <div className={vendasStyles.modal}>
+            <div className={vendasStyles['modal-card']}>
+              <div className={vendasStyles['modal-head']}>
+                <h4>Configurar Períodos de Engajamento</h4>
+                <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={() => setShowEngagementFilter(false)}>Fechar</button>
+              </div>
+              <div style={{padding: '20px'}}>
+                <div style={{marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px'}}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={quaseInativoMeses}
+                    onChange={(e) => setQuaseInativoMeses(parseInt(e.target.value) || 1)}
+                    style={{
+                      width: '60px',
+                      padding: '6px 8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      textAlign: 'center',
+                      backgroundColor: '#fff',
+                      color: '#333'
+                    }}
+                  />
+                  <div>
+                    <label style={{fontWeight: '500', marginBottom: '4px', display: 'block'}}>
+                      Clientes quase inativos: sem comprar há quantos meses
+                    </label>
+                    <small style={{color: '#666', fontSize: '12px'}}>
+                      Atualmente: {quaseInativoMeses} {quaseInativoMeses === 1 ? 'mês' : 'meses'} (~{quaseInativoMeses * 30} dias)
+                    </small>
+                  </div>
+                </div>
+                
+                <div style={{marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px'}}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={inativoMeses}
+                    onChange={(e) => setInativoMeses(parseInt(e.target.value) || 2)}
+                    style={{
+                      width: '60px',
+                      padding: '6px 8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      textAlign: 'center',
+                      backgroundColor: '#fff',
+                      color: '#333'
+                    }}
+                  />
+                  <div>
+                    <label style={{fontWeight: '500', marginBottom: '4px', display: 'block'}}>
+                      Clientes inativos: sem comprar há quantos meses
+                    </label>
+                    <small style={{color: '#666', fontSize: '12px'}}>
+                      Atualmente: {inativoMeses} {inativoMeses === 1 ? 'mês' : 'meses'} (~{inativoMeses * 30} dias)
+                    </small>
+                  </div>
+                </div>
+                
+                <div style={{marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px'}}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="24"
+                    value={maxPeriodoMeses}
+                    onChange={(e) => setMaxPeriodoMeses(parseInt(e.target.value) || 6)}
+                    style={{
+                      width: '60px',
+                      padding: '6px 8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      textAlign: 'center',
+                      backgroundColor: '#fff',
+                      color: '#333'
+                    }}
+                  />
+                  <div>
+                    <label style={{fontWeight: '500', marginBottom: '4px', display: 'block'}}>
+                      Período máximo de dados (meses)
+                    </label>
+                    <small style={{color: '#666', fontSize: '12px'}}>
+                      Atualmente: {maxPeriodoMeses} {maxPeriodoMeses === 1 ? 'mês' : 'meses'} (~{maxPeriodoMeses * 30} dias)
+                    </small>
+                  </div>
+                </div>
+                
+                <div style={{display: 'flex', gap: '12px', justifyContent: 'flex-end'}}>
+                  <button 
+                    className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`}
+                    onClick={() => setShowEngagementFilter(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    className={`${vendasStyles.btn} ${vendasStyles.btnPrimary}`}
+                    onClick={() => {
+                      setShowEngagementFilter(false);
+                      // Recarregar os dados com os novos períodos
+                      loadData();
+                    }}
+                  >
+                    Aplicar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
