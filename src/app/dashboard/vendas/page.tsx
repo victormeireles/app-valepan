@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ProductSaleRow, fetchSheetData, fetchSheetMeta, formatK } from '@/lib/sheets';
+import { ProductSaleRow, fetchSheetData, fetchSheetMeta, formatK, AccessDeniedError } from '@/lib/sheets';
 import { useTenant } from '@/hooks/useTenant';
 
 import vendasStyles from '@/styles/vendas.module.css';
@@ -105,6 +105,7 @@ export default function VendasDashboard() {
   const [filteredData, setFilteredData] = useState<ProductSaleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
+  const [accessDenied, setAccessDenied] = useState<{ email: string; sheetUrl?: string } | null>(null);
 
   // Estados dos filtros
   const [periodStart, setPeriodStart] = useState('');
@@ -181,6 +182,9 @@ export default function VendasDashboard() {
       }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
+      if (error instanceof AccessDeniedError) {
+        setAccessDenied({ email: error.email, sheetUrl: error.sheetUrl });
+      }
     } finally {
       setLoading(false);
       setInitialLoad(false);
@@ -188,10 +192,10 @@ export default function VendasDashboard() {
   }, []);
 
   useEffect(() => {
-    if (status === 'authenticated' && rawData.length === 0) {
+    if (status === 'authenticated' && rawData.length === 0 && !accessDenied) {
       loadData();
     }
-  }, [status, loadData, rawData.length]);
+  }, [status, loadData, rawData.length, accessDenied]);
 
   // Aplicar filtros iniciais quando rawData e meta estiverem carregados
   useEffect(() => {
@@ -1744,6 +1748,32 @@ export default function VendasDashboard() {
       (row.produto && row.produto.toLowerCase().includes(salesSearch.toLowerCase()))
   );
 
+  // Se acesso negado, mostre a tela de aviso em vez de loading/dashboard
+  if (accessDenied && session) {
+    return (
+      <div className={vendasStyles.container}>
+        <div className={vendasStyles.card}>
+          <h2>Acesso à planilha não autorizado</h2>
+          <p>O usuário <strong>{accessDenied.email || (session.user?.email ?? '')}</strong> não tem acesso à planilha de dados deste dashboard.</p>
+          {accessDenied.sheetUrl ? (
+            <div style={{ marginTop: '16px' }}>
+              <p style={{ marginBottom: '12px' }}>Para solicitar acesso, clique no botão abaixo:</p>
+              <a 
+                href={accessDenied.sheetUrl} 
+                target="_blank" 
+                rel="noreferrer"
+                className={vendasStyles.btn}
+                style={{ display: 'inline-block', textDecoration: 'none' }}
+              >
+                Abrir planilha no Google Sheets
+              </a>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   // Mostrar loading bonito sempre que necessário
   const showLoading = status === 'loading' || loading || initialLoad || !session;
   
@@ -2360,15 +2390,9 @@ export default function VendasDashboard() {
                             }}
                           >
                             <span className={vendasStyles.dot} style={{backgroundColor: tipoCliente.cor}}></span>
-                            <div style={{flex: 1, minWidth: 0}}>
-                              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px'}}>
-                                <div style={{fontWeight: '600', color: 'var(--text)'}}>{tipoCliente.cliente ?? ''}</div>
-                                <span className={vendasStyles['margem-bruta']} style={{color: 'var(--accent)', fontWeight: '500'}}>MB: {Math.round(tipoCliente.margemBruta ?? 0)}%</span>
-                              </div>
-                              <div style={{fontSize: '11px', color: 'var(--muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                                <span>{Math.round(tipoCliente.valor / 1000)}k ({pct.toFixed(0)}%)</span>
-                              </div>
-                            </div>
+                            <span>{tipoCliente.cliente ?? ''}</span>
+                            <span>{Math.round(tipoCliente.valor / 1000)}k ({pct.toFixed(0)}%)</span>
+                            <span className={vendasStyles['margem-bruta']}>MB: {Math.round(tipoCliente.margemBruta ?? 0)}%</span>
                           </li>
                         );
                       })}
@@ -2719,6 +2743,7 @@ export default function VendasDashboard() {
           <div className={vendasStyles.card}>
             <div className={vendasStyles['table-head']} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <h3>Produtos desse cliente</h3>
+			  <p><small>Selecione um cliente para ver seus produtos</small></p>
               <div style={{ position:'relative', display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button className={vendasStyles.chip} onClick={()=>{ setShowClientPicker(!showClientPicker); setClientPickerTemp(selectCliente); }}>
                   {selectCliente || 'Selecionar cliente'}
@@ -2778,6 +2803,7 @@ export default function VendasDashboard() {
           <div className={vendasStyles.card}>
             <div className={vendasStyles['table-head']} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <h3>Clientes desse produto</h3>
+              <p><small>Selecione um produto para ver seus clientes</small></p>
               <div style={{ position:'relative', display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button className={vendasStyles.chip} onClick={()=>{ setShowProductPicker(!showProductPicker); setProductPickerTemp(selectProduto); }}>
                   {selectProduto || 'Selecionar produto'}

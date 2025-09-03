@@ -30,6 +30,19 @@ export interface ProductSaleRow {
   margemPercent?: number | null;
 }
 
+// Erro específico para quando o usuário não tem acesso à planilha
+export class AccessDeniedError extends Error {
+  public readonly email: string;
+  public readonly sheetUrl?: string;
+
+  constructor(message: string, email: string, sheetUrl?: string) {
+    super(message);
+    this.name = 'AccessDeniedError';
+    this.email = email;
+    this.sheetUrl = sheetUrl;
+  }
+}
+
 // Função para buscar dados da API (servidor) para um dashboard específico
 export async function fetchSheetData(
   dashboard: 'vendas'
@@ -44,6 +57,16 @@ export async function fetchSheetData(dashboard: string = 'vendas') {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       
+      if (response.status === 403) {
+        const email = String((errorData.email ?? ''));
+        const sheetUrl = (typeof errorData.sheetUrl === 'string' ? errorData.sheetUrl : undefined);
+        throw new AccessDeniedError(
+          String(errorData.error ?? 'Você não tem acesso à planilha deste tenant.'),
+          email,
+          sheetUrl
+        );
+      }
+
       if (response.status === 401) {
         // Se token expirou, tentar refresh automático recarregando
         if (errorData.shouldRefresh) {

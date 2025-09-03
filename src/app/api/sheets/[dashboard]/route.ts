@@ -338,11 +338,12 @@ export async function GET(
     // Buscar dados da Google Sheets (apenas dados reais)
     const sheets = await getGoogleSheetsClient();
     
-    // Ler toda a aba (o normalizador usará o cabeçalho e mappings)
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: sheetCfg.sheet_id,
-      range: `${sheetCfg.sheet_tab}`,
-    });
+    try {
+      // Ler toda a aba (o normalizador usará o cabeçalho e mappings)
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: sheetCfg.sheet_id,
+        range: `${sheetCfg.sheet_tab}`,
+      });
 
     const values = response.data.values;
     
@@ -360,34 +361,80 @@ export async function GET(
       normalizedData = normalizeRows(dataRows);
     }
 
-    // Atualizar cache
-    cache.set(cacheKey, { data: normalizedData, timestamp: Date.now() });
-    
-    return NextResponse.json(normalizedData);
+      // Atualizar cache
+      cache.set(cacheKey, { data: normalizedData, timestamp: Date.now() });
+      
+      return NextResponse.json(normalizedData);
+    } catch (sheetsError) {
+      // Helpers para identificar o tipo de erro sem usar any
+      const getMessage = (e: unknown): string => (e instanceof Error ? (e.message ?? '') : '');
+      const msg = getMessage(sheetsError).toLowerCase();
+
+      // Falta de permissão à planilha (retornar 403 com dados para UI)
+      const isPermissionError =
+        msg.includes('permission') ||
+        msg.includes('insufficient permissions') ||
+        msg.includes('permission_denied') ||
+        msg.includes('caller does not have permission') ||
+        msg.includes('request had insufficient authentication scopes');
+
+      if (isPermissionError) {
+        // Tentar obter e-mail do usuário e link da planilha
+        try {
+          const session = await auth();
+          return NextResponse.json(
+            {
+              error: 'Você não tem acesso à planilha deste tenant.',
+              reason: 'NO_SHEET_ACCESS',
+              email: session?.user?.email ?? '',
+              sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetCfg.sheet_id}`,
+            },
+            { status: 403 }
+          );
+        } catch {
+          return NextResponse.json(
+            {
+              error: 'Você não tem acesso à planilha deste tenant.',
+              reason: 'NO_SHEET_ACCESS',
+              sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetCfg.sheet_id}`,
+            },
+            { status: 403 }
+          );
+        }
+      }
+      
+      // Re-lançar o erro para ser tratado pelo catch externo
+      throw sheetsError;
+    }
   } catch (error) {
     console.error(`❌ Erro ao buscar dados da planilha para ${dashboard}:`, error);
-    
-    // Se o erro for de autorização, tentar refresh token via frontend
-    if (error instanceof Error && (
-      error.message.includes('token de acesso') || 
-      error.message.includes('authentication') ||
-      error.message.includes('unauthorized')
-    )) {
+
+    // Helpers para identificar o tipo de erro sem usar any
+    const getMessage = (e: unknown): string => (e instanceof Error ? (e.message ?? '') : '');
+    const msg = getMessage(error).toLowerCase();
+
+    // Se o erro for de autorização (token/credenciais), solicitar refresh do token
+    if (
+      msg.includes('token de acesso') ||
+      msg.includes('authentication') ||
+      msg.includes('unauthorized') ||
+      msg.includes('invalid credentials')
+    ) {
       return NextResponse.json(
-        { 
+        {
           error: 'Token expirado. Por favor, recarregue a página para renovar a autenticação.',
-          shouldRefresh: true 
-        }, 
+          shouldRefresh: true,
+        },
         { status: 401 }
       );
     }
-    
-    // Para outros erros, retornar erro específico
+
+    // Erro genérico
     return NextResponse.json(
-      { 
+      {
         error: 'Falha ao carregar dados da planilha. Verifique a conexão e tente novamente.',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
-      }, 
+        details: error instanceof Error ? error.message : 'Erro desconhecido',
+      },
       { status: 500 }
     );
   }
