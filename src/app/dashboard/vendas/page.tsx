@@ -1457,7 +1457,30 @@ export default function VendasDashboard() {
                 borderWidth: 0
               }
             }
-          }
+          },
+          plugins: [{
+            id: 'datalabels',
+            afterDatasetsDraw: (chart: any) => {
+              const { ctx } = chart;
+              chart.data.datasets.forEach((dataset: any, i: number) => {
+                const meta = chart.getDatasetMeta(i);
+                meta.data.forEach((arc: any, index: number) => {
+                  const value = dataset.data[index];
+                  const pct = (value / totalPeriodoTiposCliente * 100) || 0;
+                  if (pct >= 6) { // Só mostra se >= 6%
+                    const { x, y } = arc.getCenterPoint();
+                    ctx.fillStyle = '#eaf1ff';
+                    ctx.strokeStyle = 'rgba(10,14,20,.45)';
+                    ctx.lineWidth = 3;
+                    ctx.font = 'bold 11px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.strokeText(`${pct.toFixed(0)}%`, x, y);
+                    ctx.fillText(`${pct.toFixed(0)}%`, x, y);
+                  }
+                });
+              });
+            }
+          }]
         });
       }
     }
@@ -1751,23 +1774,23 @@ export default function VendasDashboard() {
   // Se acesso negado, mostre a tela de aviso em vez de loading/dashboard
   if (accessDenied && session) {
     return (
-      <div className={vendasStyles.container}>
-        <div className={vendasStyles.card}>
-          <h2>Acesso à planilha não autorizado</h2>
-          <p>O usuário <strong>{accessDenied.email || (session.user?.email ?? '')}</strong> não tem acesso à planilha de dados deste dashboard.</p>
+      <div className="access-denied-container">
+        <div className="access-denied-card">
+          <div className="access-denied-icon"></div>
+          <h1 className="access-denied-title">Acesso Negado</h1>
+          <p className="access-denied-message">
+            O usuário <span className="access-denied-email">{accessDenied.email || (session.user?.email ?? '')}</span> não tem acesso à planilha de dados deste dashboard.
+          </p>
           {accessDenied.sheetUrl ? (
-            <div style={{ marginTop: '16px' }}>
-              <p style={{ marginBottom: '12px' }}>Para solicitar acesso, clique no botão abaixo:</p>
-              <a 
-                href={accessDenied.sheetUrl} 
-                target="_blank" 
-                rel="noreferrer"
-                className={vendasStyles.btn}
-                style={{ display: 'inline-block', textDecoration: 'none' }}
-              >
-                Abrir planilha no Google Sheets
-              </a>
-            </div>
+            <a 
+              href={accessDenied.sheetUrl} 
+              target="_blank" 
+              rel="noreferrer"
+              className="access-denied-button"
+            >
+              <span>Abrir planilha no Google Sheets</span>
+              <span className="access-denied-button-icon">↗</span>
+            </a>
           ) : null}
         </div>
       </div>
