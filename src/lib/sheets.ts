@@ -18,6 +18,7 @@ export interface ProductSaleRow {
   pedido?: string | null;
   cliente: string;
   produto: string;
+  tipoCliente?: string | null;
   quantidade?: number | null;
   pacotes?: number | null;
   caixas?: number | null;
@@ -88,6 +89,7 @@ export async function fetchSheetData(dashboard: string = 'vendas') {
 export type SheetMeta = {
   hasPackages: boolean;
   hasBoxes: boolean;
+  hasCustomerType: boolean;
 };
 
 export async function fetchSheetMeta(dashboard: string = 'vendas'): Promise<SheetMeta> {

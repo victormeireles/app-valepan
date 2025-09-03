@@ -22,7 +22,6 @@ export default function MobileMenu() {
   const nav: NavItem[] = [
     { href: "/", label: "Home", icon: "home" },
     { href: "/dashboard/vendas", label: "Vendas", icon: "bar_chart" },
-    { href: "/dashboard/producao", label: "Produção", icon: "factory" },
     { label: "Logout", icon: "logout", onClick: () => signOut({ callbackUrl: "/login" }) },
   ];
 

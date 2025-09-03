@@ -1,6 +1,6 @@
 # CSS Organization Rules
 
-## NEVER put CSS directly in .tsx files
+## NEVER put CSS or styles directly in .tsx files
 - All CSS must be in separate .css files
 - Use CSS Modules (.module.css) for component-specific styles
 - Use globals.css only for truly global styles
@@ -10,7 +10,8 @@
 - `src/styles/[component].module.css` - Component-specific styles
 - `src/styles/[feature].module.css` - Feature-specific styles
 
-## Before adding any CSS:
+## Before adding any CSS or style:
+0. Evaluate if there is an existing matching css class
 1. Evaluate if it's truly global → use globals.css
 2. Is it component-specific → use [component].module.css
 3. Is it feature-specific → use [feature].module.css

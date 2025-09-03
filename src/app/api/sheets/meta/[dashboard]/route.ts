@@ -5,6 +5,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase';
 type MetaResponse = {
   hasPackages: boolean;
   hasBoxes: boolean;
+  hasCustomerType: boolean;
 };
 
 function normalizeLogicalName(name: string | null | undefined): string {
@@ -62,8 +63,11 @@ export async function GET(
     // Aceitar variações (singular/plural/pt-en)
     const hasPackages = logicals.some(l => ['packages', 'package', 'pacotes', 'pacote'].includes(l));
     const hasBoxes = logicals.some(l => ['boxes', 'box', 'caixas', 'caixa'].includes(l));
+    const hasCustomerType = logicals.some(l => ['customer_type', 'customer-type', 'tipo_cliente', 'tipo-cliente', 'tipo cliente'].includes(l));
+    
 
-    const meta: MetaResponse = { hasPackages, hasBoxes };
+
+    const meta: MetaResponse = { hasPackages, hasBoxes, hasCustomerType };
     return NextResponse.json(meta);
   } catch (error) {
     return NextResponse.json(

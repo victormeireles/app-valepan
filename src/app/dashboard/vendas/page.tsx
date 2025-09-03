@@ -85,6 +85,7 @@ interface ChartDataStructure {
   semanas: SemanaData[];
   topClientes: TopItem[];
   topProdutos: TopItem[];
+  topTiposCliente: TopItem[];
   rankingUp: RankingItem[];
   rankingDown: RankingItem[];
   engajamento: EngajamentoData;
@@ -139,7 +140,7 @@ export default function VendasDashboard() {
 
   // Estados dos KPIs e dados calculados
   const [kpis, setKpis] = useState<KpisData | null>(null);
-  const [meta, setMeta] = useState<{hasPackages:boolean;hasBoxes:boolean} | null>(null);
+  const [meta, setMeta] = useState<{hasPackages:boolean;hasBoxes:boolean;hasCustomerType:boolean} | null>(null);
   const [chartData, setChartData] = useState<ChartDataStructure | null>(null);
   const [charts, setCharts] = useState<Record<string, any>>({});
 
@@ -154,6 +155,7 @@ export default function VendasDashboard() {
         fetchSheetData('vendas'),
         fetchSheetMeta('vendas'),
       ]);
+
       setRawData(data);
       setMeta(metaResp);
 
@@ -176,9 +178,6 @@ export default function VendasDashboard() {
         
         setPeriodStart(inicioMes.toISOString().split('T')[0]);
         setPeriodEnd(fimPeriodo.toISOString().split('T')[0]);
-        
-        // Aplicar filtros iniciais
-        applyFilters(data, inicioMes, fimPeriodo, [], []);
       }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -193,6 +192,15 @@ export default function VendasDashboard() {
       loadData();
     }
   }, [status, loadData, rawData.length]);
+
+  // Aplicar filtros iniciais quando rawData e meta estiverem carregados
+  useEffect(() => {
+    if (rawData.length > 0 && meta && periodStart && periodEnd) {
+      const startDate = new Date(periodStart + 'T00:00:00');
+      const endDate = new Date(periodEnd + 'T00:00:00');
+      applyFilters(rawData, startDate, endDate, [], []);
+    }
+  }, [rawData, meta, periodStart, periodEnd]);
 
   // Aplicar filtros
   const applyFilters = (data: ProductSaleRow[], startDate: Date, endDate: Date, clients: string[], products: string[]) => {
@@ -257,7 +265,7 @@ export default function VendasDashboard() {
       row.data >= prevStartDate && row.data <= prevEndDate
     );
     
-    const chartDataResult = generateChartData(filtered, data, previousData, startDate, endDate);
+    const chartDataResult = generateChartData(filtered, data, previousData, startDate, endDate, meta);
     setChartData(chartDataResult);
   };
 
@@ -463,7 +471,7 @@ export default function VendasDashboard() {
   };
 
   // Gerar dados para gráficos
-  const generateChartData = (filteredData: ProductSaleRow[], allData: ProductSaleRow[], previousData: ProductSaleRow[], startDate: Date, endDate: Date) => {
+  const generateChartData = (filteredData: ProductSaleRow[], allData: ProductSaleRow[], previousData: ProductSaleRow[], startDate: Date, endDate: Date, meta: {hasPackages:boolean;hasBoxes:boolean;hasCustomerType:boolean} | null) => {
     // Ajustar startDate para o início do dia e endDate para o final do dia
     const startOfDay = new Date(startDate);
     startOfDay.setHours(0, 0, 0, 0);
@@ -685,6 +693,76 @@ export default function VendasDashboard() {
     const y1Min = Math.max(0, minMargem - 5);
     const y1Max = maxMargem + 15;
 
+    // Top tipos de cliente (apenas se meta.hasCustomerType for true)
+    let topTiposCliente: TopItem[] = [];
+
+    if (meta?.hasCustomerType) {
+      const tipoClienteMap = new Map<string, number>();
+      const tipoClienteCMVMap = new Map<string, number>();
+      
+      filteredData.forEach(row => {
+        if (row.tipoCliente) {
+          tipoClienteMap.set(row.tipoCliente, (tipoClienteMap.get(row.tipoCliente) || 0) + row.valorTotal);
+          tipoClienteCMVMap.set(row.tipoCliente, (tipoClienteCMVMap.get(row.tipoCliente) || 0) + (row.custoTotal || 0));
+        }
+      });
+      
+
+      
+      const allTiposCliente = Array.from(tipoClienteMap.entries()).sort(([,a], [,b]) => b - a);
+      
+      // Top 5 + Outros
+      const top5TiposCliente = allTiposCliente.slice(0, 5);
+      const outrosTiposCliente = allTiposCliente.slice(5);
+      const outrosTiposClienteTotal = outrosTiposCliente.reduce((sum, [, valor]) => sum + valor, 0);
+      
+      // Calcular margem bruta para "Outros" (média ponderada)
+      const outrosTiposClienteCMV = outrosTiposCliente.reduce((sum, [tipoCliente]) => sum + (tipoClienteCMVMap.get(tipoCliente) || 0), 0);
+      let outrosTiposClienteMargemBruta = 0;
+      if (outrosTiposClienteTotal > 0 && outrosTiposClienteCMV > 0) {
+        outrosTiposClienteMargemBruta = Math.round((1 - (outrosTiposClienteCMV / outrosTiposClienteTotal)) * 100);
+        outrosTiposClienteMargemBruta = Math.max(-100, Math.min(100, outrosTiposClienteMargemBruta));
+      } else if (outrosTiposClienteTotal > 0 && outrosTiposClienteCMV === 0) {
+        outrosTiposClienteMargemBruta = 100;
+      } else if (outrosTiposClienteTotal === 0 && outrosTiposClienteCMV > 0) {
+        outrosTiposClienteMargemBruta = -100;
+      }
+      
+      topTiposCliente = [
+        ...top5TiposCliente.map(([tipoCliente, valor], index) => {
+          const cmv = tipoClienteCMVMap.get(tipoCliente) || 0;
+          
+          // Calcular margem bruta com validação
+          let margemBruta = 0;
+          if (valor > 0 && cmv > 0) {
+            margemBruta = Math.round((1 - (cmv / valor)) * 100);
+            // Garantir que a margem bruta esteja entre -100% e 100%
+            margemBruta = Math.max(-100, Math.min(100, margemBruta));
+          } else if (valor > 0 && cmv === 0) {
+            margemBruta = 100; // Se não há custo, margem é 100%
+          } else if (valor === 0 && cmv > 0) {
+            margemBruta = -100; // Se não há receita mas há custo, margem é -100%
+          }
+          
+          return {
+            cliente: tipoCliente,
+            valor,
+            cmv,
+            margemBruta,
+            cor: cores[index]
+          };
+        }),
+        // Adicionar "Outros" se houver tipos de cliente além do Top 5
+        ...(outrosTiposCliente.length > 0 ? [{
+          cliente: 'Outros',
+          valor: outrosTiposClienteTotal,
+          cmv: outrosTiposClienteCMV,
+          margemBruta: outrosTiposClienteMargemBruta,
+          cor: cores[5] // Cor cinza para "Outros"
+        }] : [])
+      ];
+    }
+
     // Rankings de variação por cliente (top 5 up/down) - como no original
     const sumByClient = (data: ProductSaleRow[]) => {
       const m = new Map<string, number>();
@@ -739,7 +817,7 @@ export default function VendasDashboard() {
     const dateToMinus1Month = new Date(dateTo.getTime() - quaseInativoDias * msDay);
     const dateToMinus2Months = new Date(dateTo.getTime() - inativoDias * msDay);
     const dateToMinus6Months = new Date(dateTo.getTime() - maxPeriodoDias * msDay);
-    
+
     // Usar filteredData se houver filtro de cliente, senão usar allData
     const dataToUse = filteredData.length < allData.length ? filteredData : allData;
     
@@ -810,6 +888,7 @@ export default function VendasDashboard() {
       semanas,
       topClientes,
       topProdutos,
+      topTiposCliente,
       rankingUp,
       rankingDown,
       engajamento,
@@ -1330,6 +1409,55 @@ export default function VendasDashboard() {
       };
     }
 
+    // Gráfico de tipos de cliente (donut) - apenas se meta.hasCustomerType for true
+    if (meta?.hasCustomerType) {
+      const ctxTiposCliente = document.getElementById('chart-tipos-cliente') as HTMLCanvasElement;
+      if (ctxTiposCliente && chartData.topTiposCliente) {
+        // Remover atributos de tamanho para usar CSS
+        ctxTiposCliente.removeAttribute('width');
+        ctxTiposCliente.removeAttribute('height');
+        
+        const totalPeriodoTiposCliente = chartData.topTiposCliente.reduce((sum: number, t: TopItem) => sum + t.valor, 0) || 1;
+        
+        newCharts.tiposCliente = new window.Chart(ctxTiposCliente, {
+          type: 'doughnut',
+          data: {
+            labels: chartData.topTiposCliente.map((t: TopItem) => t.cliente),
+            datasets: [{
+              data: chartData.topTiposCliente.map((t: TopItem) => t.valor),
+              backgroundColor: chartData.topTiposCliente.map((t: TopItem) => t.cor),
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: 8, right: 8, left: 8, bottom: 8 } },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  title: () => 'Tipo de Cliente',
+                  label: (ctx: any) => {
+                    const total = totalPeriodoTiposCliente;
+                    const value = ctx.parsed;
+                    const percentage = ((value / total) * 100).toFixed(1);
+                    return `${ctx.label}: ${formatK(value)} (${percentage}%)`;
+                  }
+                }
+              }
+            },
+            cutout: '60%',
+            elements: {
+              arc: {
+                borderWidth: 0
+              }
+            }
+          }
+        });
+      }
+    }
+
     // Gráfico de engajamento
     const ctxEng = document.getElementById('chart-eng') as HTMLCanvasElement;
     if (ctxEng) {
@@ -1457,7 +1585,7 @@ export default function VendasDashboard() {
             const cmp = meta?.hasPackages ? (data.pacotes > 0 ? data.cmv/data.pacotes : 0) : (data.unidades > 0 ? data.cmv/data.unidades : 0);
             
             return {
-              cliente: String(c),
+            cliente: String(c),
               unidades: data.unidades,
               pacotes: data.pacotes,
               caixas: data.caixas,
@@ -2202,15 +2330,79 @@ export default function VendasDashboard() {
                       </div>
         </section>
 
-        {/* Gráfico de Top Produtos */}
+        {/* Gráfico de Top Produtos e Tipos de Cliente */}
         <section className={vendasStyles.charts}>
-          <div className={vendasStyles.card}>
-            <h3>Top produtos por valor</h3>
-			<p><small>Clique no gráfico para filtrar por produto</small></p>
-            <div className={vendasStyles.topcli}>
-              <div className={vendasStyles['chart-donut']}>
-                <canvas id="chart-produtos"></canvas>
-                        </div>
+          {meta?.hasCustomerType ? (
+            // Layout com dois gráficos na mesma linha
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', gridColumn: 'span 2' }}>
+              {/* Gráfico de Tipos de Cliente - 1/3 */}
+              <div className={vendasStyles.card}>
+                <h3>Distribuição por tipo de cliente</h3>
+                <p><small>Distribuição de vendas por tipo de cliente</small></p>
+                {chartData?.topTiposCliente && chartData.topTiposCliente.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '300px' }}>
+                    <div className={vendasStyles['chart-donut']} style={{ marginBottom: '20px' }}>
+                      <canvas id="chart-tipos-cliente"></canvas>
+                    </div>
+                    <ul className={vendasStyles['topcli-legend']} style={{ width: '100%' }}>
+                      {chartData.topTiposCliente.map((tipoCliente: TopItem, index: number) => {
+                        const totalPeriodo = chartData.topTiposCliente.reduce((sum: number, t: TopItem) => sum + t.valor, 0) || 1;
+                        const pct = ((tipoCliente.valor ?? 0) / totalPeriodo * 100) || 0;
+                        
+                        return (
+                          <li 
+                            key={tipoCliente.cliente ?? ''}
+                            style={{
+                              cursor: 'default',
+                              background: 'rgba(255,255,255,.04)',
+                              border: '1px solid rgba(255,255,255,.06)',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span className={vendasStyles.dot} style={{backgroundColor: tipoCliente.cor}}></span>
+                            <div style={{flex: 1, minWidth: 0}}>
+                              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px'}}>
+                                <div style={{fontWeight: '600', color: 'var(--text)'}}>{tipoCliente.cliente ?? ''}</div>
+                                <span className={vendasStyles['margem-bruta']} style={{color: 'var(--accent)', fontWeight: '500'}}>MB: {Math.round(tipoCliente.margemBruta ?? 0)}%</span>
+                              </div>
+                              <div style={{fontSize: '11px', color: 'var(--muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                                <span>{Math.round(tipoCliente.valor / 1000)}k ({pct.toFixed(0)}%)</span>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : (
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    height: '100%',
+                    minHeight: '300px',
+                    color: 'var(--muted)',
+                    fontSize: '14px',
+                    textAlign: 'center'
+                  }}>
+                    <div>
+                      <p>Nenhum dado de tipo de cliente encontrado</p>
+                      <p style={{ fontSize: '12px', marginTop: '8px' }}>
+                        Verifique se a coluna está mapeada corretamente
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Gráfico de Produtos - 2/3 */}
+              <div className={vendasStyles.card}>
+                <h3>Top produtos por valor</h3>
+                <p><small>Clique no gráfico para filtrar por produto</small></p>
+                <div className={vendasStyles.topcli}>
+                  <div className={vendasStyles['chart-donut']}>
+                    <canvas id="chart-produtos"></canvas>
+                  </div>
               <ul className={vendasStyles['topcli-legend']}>
                 {chartData?.topProdutos?.map((produto: TopItem, index: number) => {
                   const totalPeriodo = chartData.topProdutos.reduce((sum: number, p: TopItem) => sum + p.valor, 0) || 1;
@@ -2332,6 +2524,138 @@ export default function VendasDashboard() {
                 </ul>
               </div>
             </div>
+          </div>
+          ) : (
+            // Layout original quando não há hasCustomerType
+            <div className={vendasStyles.card}>
+              <h3>Top produtos por valor</h3>
+              <p><small>Clique no gráfico para filtrar por produto</small></p>
+              <div className={vendasStyles.topcli}>
+                <div className={vendasStyles['chart-donut']}>
+                  <canvas id="chart-produtos"></canvas>
+                </div>
+                <ul className={vendasStyles['topcli-legend']}>
+                  {chartData?.topProdutos?.map((produto: TopItem, index: number) => {
+                    const totalPeriodo = chartData.topProdutos.reduce((sum: number, p: TopItem) => sum + p.valor, 0) || 1;
+                    const pct = ((produto.valor ?? 0) / totalPeriodo * 100) || 0;
+                    
+                    // Calcular valores para exibição baseado em meta.hasPackages
+                    const quantidadeTotal = produto.quantidadeTotal ?? 0;
+                    const cmv = produto.cmv ?? 0;
+                    const precoMedioPorUnidade = quantidadeTotal > 0 ? produto.valor / quantidadeTotal : 0;
+                    const custoMedioPorUnidade = quantidadeTotal > 0 ? cmv / quantidadeTotal : 0;
+                    
+                    // Lógica de seleção especial para "Outros"
+                    let isSelected = false;
+                    if ((produto.produto ?? '') === 'Outros') {
+                      // Para "Outros", verificar se está filtrando pelos produtos que não estão no Top 5
+                      const produtoMap = new Map<string, number>();
+                      filteredData.forEach(row => {
+                        if (row.produto) {
+                          produtoMap.set(row.produto, (produtoMap.get(row.produto) || 0) + row.valorTotal);
+                        }
+                      });
+                      const allProdutos = Array.from(produtoMap.entries()).sort(([,a], [,b]) => b - a);
+                      const outrosProdutos = allProdutos.slice(5).map(([produto]) => produto);
+                      
+                      isSelected = selectedProducts.length > 0 && 
+                        selectedProducts.every(prod => outrosProdutos.includes(prod)) &&
+                        outrosProdutos.every(prod => selectedProducts.includes(prod));
+                    } else {
+                      // Para produtos específicos, verificar se é o único selecionado
+                      isSelected = selectedProducts.length === 1 && selectedProducts[0] === (produto.produto ?? '');
+                    }
+                    return (
+                      <li 
+                        key={produto.produto ?? ''}
+                        onClick={() => {
+                          try {
+                            let newSelectedProducts: string[];
+                            
+                            // Tratamento especial para "Outros"
+                            if ((produto.produto ?? '') === 'Outros') {
+                              // Obter lista de todos os produtos que não estão no Top 5
+                              const produtoMap = new Map<string, number>();
+                              filteredData.forEach(row => {
+                                if (row.produto) {
+                                  produtoMap.set(row.produto, (produtoMap.get(row.produto) || 0) + row.valorTotal);
+                                }
+                              });
+                              
+                              const allProdutos = Array.from(produtoMap.entries()).sort(([,a], [,b]) => b - a);
+                              const top5Produtos = allProdutos.slice(0, 5).map(([produto]) => produto);
+                              const outrosProdutos = allProdutos.slice(5).map(([produto]) => produto);
+                              
+                              // Verificar se já está filtrando por "Outros"
+                              const isFilteringOthers = selectedProducts.length > 0 && 
+                                selectedProducts.every(prod => outrosProdutos.includes(prod)) &&
+                                outrosProdutos.every(prod => selectedProducts.includes(prod));
+                              
+                              if (isFilteringOthers) {
+                                // Se já está filtrando por "Outros", limpar filtro
+                                newSelectedProducts = [];
+                              } else {
+                                // Filtrar por todos os produtos "Outros"
+                                newSelectedProducts = outrosProdutos;
+                              }
+                            } else {
+                              // Comportamento normal para produtos específicos
+                              if (isSelected) {
+                                // Se já está selecionado, limpar filtro
+                                newSelectedProducts = [];
+                              } else {
+                                // Selecionar apenas o produto clicado
+                                newSelectedProducts = [produto.produto ?? ''];
+                              }
+                            }
+                            
+                            // Atualizar estado
+                            setSelectedProducts(newSelectedProducts);
+                            
+                            // Reaplicar filtros
+                            const startDate = new Date(periodStart);
+                            const endDate = new Date(periodEnd);
+                            applyFilters(rawData, startDate, endDate, selectedClients, newSelectedProducts);
+                            
+                          } catch (error) {
+                            console.error('Erro ao processar filtro de produto:', error);
+                          }
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          background: isSelected ? 'rgba(230,126,34,.2)' : 'rgba(255,255,255,.04)',
+                          border: isSelected ? '1px solid rgba(230,126,34,.4)' : '1px solid rgba(255,255,255,.06)',
+                          transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span className={vendasStyles.dot} style={{backgroundColor: produto.cor}}></span>
+                        <div style={{flex: 1, minWidth: 0}}>
+                          {/* Primeira linha: Título + PMP/CMP ou PMV/CMV */}
+                          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px'}}>
+                            <div style={{fontWeight: '600', color: 'var(--text)'}}>{produto.produto ?? ''}</div>
+                            <div style={{display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px'}}>
+                              <span className={vendasStyles['preco-medio']} style={{color: 'var(--accent)', fontWeight: '500'}}>
+                                {meta?.hasPackages ? 'PMP' : 'PMV'}: {meta?.hasPackages ? (produto.precoMedioPorPacote ?? 0).toFixed(2) : precoMedioPorUnidade.toFixed(2)}
+                              </span>
+                              <span className={vendasStyles['custo-medio']} style={{color: 'var(--accent)', fontWeight: '500'}}>
+                                {meta?.hasPackages ? 'CMP' : 'CMV'}: {meta?.hasPackages ? (produto.custoMedioPorPacote ?? 0).toFixed(2) : custoMedioPorUnidade.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                          {/* Segunda linha: Valor, pacotes/unidades e MB */}
+                          <div style={{fontSize: '11px', color: 'var(--muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                            <span>{Math.round(produto.valor / 1000)}k ({pct.toFixed(0)}%) • {meta?.hasPackages ? `${formatK(produto.pacotesTotal ?? 0)} pacotes` : `${formatK(quantidadeTotal)} unidades`}</span>
+                            <span className={vendasStyles['margem-bruta']} style={{color: 'var(--accent)', fontWeight: '500'}}>MB: {Math.round(produto.margemBruta ?? 0)}%</span>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Insights */}
@@ -2375,7 +2699,7 @@ export default function VendasDashboard() {
         </div>
                      <div className={vendasStyles.card}>
              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
-               <h3>Engajamento de clientes</h3>
+             <h3>Engajamento de clientes</h3>
                <button 
                  className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`}
                  onClick={() => setShowEngagementFilter(true)}

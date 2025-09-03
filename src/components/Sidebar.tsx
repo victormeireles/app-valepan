@@ -27,7 +27,6 @@ export default function Sidebar() {
   const nav: NavItem[] = [
     { href: "/", label: "Home", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></Icon> },
     { href: "/dashboard/vendas", label: "Vendas", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-1.99-2z"/></svg></Icon> },
-    { href: "/dashboard/producao", label: "Produção", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></Icon> },
     { label: "Logout", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.18 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg></Icon>, onClick: () => signOut({ callbackUrl: "/login" }) },
   ];
 
@@ -73,7 +72,7 @@ export default function Sidebar() {
 
             {/* Grupo 2: Dashboard (Vendas, Produção) */}
             <div className="nav-group">
-              {nav.slice(1, 3).map((item) => {
+              {nav.slice(1, 2).map((item) => {
                 const isActive = item.href ? pathname === item.href : false;
                 const content = (
                   <div className={`sb-item ${isActive ? "active" : ""}`}>

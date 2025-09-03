@@ -4,14 +4,31 @@ import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { fetchExternalSheets, type ExternalSheet } from '@/lib/externalSheets';
 
 export default function Home() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
+  const [externalSheets, setExternalSheets] = useState<ExternalSheet[]>([]);
 
   useEffect(() => {
     if (status === 'authenticated') {
       setLoading(false);
+    }
+  }, [status]);
+
+  useEffect(() => {
+    async function loadSheets() {
+      try {
+        const data = await fetchExternalSheets();
+        setExternalSheets(data);
+      } catch (err) {
+        console.error('Falha ao carregar planilhas externas:', err);
+        setExternalSheets([]);
+      }
+    }
+    if (status === 'authenticated') {
+      void loadSheets();
     }
   }, [status]);
 
@@ -99,16 +116,6 @@ export default function Home() {
       color: "#1E88E5",
       bgColor: "rgba(30, 136, 229, 0.15)"
     },
-    {
-      id: "producao",
-      title: "Dashboard de Produção",
-      description: "Monitoramento das etapas de produção",
-      status: "Em desenvolvimento",
-      href: "/dashboard/producao",
-      icon: "factory",
-      color: "#f4c27a",
-      bgColor: "rgba(244, 194, 122, 0.15)"
-    }
   ];
 
 
@@ -259,7 +266,9 @@ export default function Home() {
         
         .dashboards-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          /* auto-fit colapsa colunas vazias, permitindo centralização real quando há poucos itens */
+          grid-template-columns: repeat(auto-fit, minmax(320px, 510px));
+          justify-content: center;
           gap: 20px;
           margin-bottom: 32px;
         }
@@ -407,7 +416,9 @@ export default function Home() {
         
         .sheets-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          /* auto-fit colapsa colunas vazias, permitindo centralização real quando há poucos itens */
+          grid-template-columns: repeat(auto-fit, minmax(280px, 380px));
+          justify-content: center;
           gap: 20px;
         }
         
@@ -644,90 +655,37 @@ export default function Home() {
             fontSize: '18px', 
             fontWeight: '700', 
             color: 'var(--accent-2)',
-            letterSpacing: '0.2px'
+            letterSpacing: '0.2px',
+			textAlign: 'center'
           }}>
             Planilhas de Dados
           </h3>
           <div className="sheets-grid">
-            <a 
-              href="https://docs.google.com/spreadsheets/d/1WsdJ4ocAhLis_7eDkPDHgYMraNqmRe0I2XQJK-mrHcI/edit" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="sheet-card"
-            >
-              <div className="sheet-icon" style={{ background: 'rgba(0, 211, 167, 0.15)', color: '#00d3a7' }}>
-                <span className="material-icons">inventory</span>
-              </div>
-              <div className="sheet-content">
-                <h4 className="sheet-title">Produtos</h4>
-                <p className="sheet-description">Receitas, custos e composição de todos os produtos</p>
-              </div>
-              <div className="sheet-arrow">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M7 17L17 7M17 7H7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-            </a>
-
-            <a 
-              href="https://docs.google.com/spreadsheets/d/1_xlm8YzBpG7a3LN3lBN6snbIYxJxMefvPPZxsx7vCaM/edit" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="sheet-card"
-            >
-              <div className="sheet-icon" style={{ background: 'rgba(30, 136, 229, 0.15)', color: '#1E88E5' }}>
-                <span className="material-icons">point_of_sale</span>
-              </div>
-              <div className="sheet-content">
-                <h4 className="sheet-title">Base de Vendas</h4>
-                <p className="sheet-description">Todas as vendas por produto e cliente</p>
-              </div>
-              <div className="sheet-arrow">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M7 17L17 7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-        </div>
-            </a>
-
-            <a 
-              href="https://docs.google.com/spreadsheets/d/1-YyKoGWHUWKBLnqK35mf9varGS-DA104AldE_APS6qw/edit" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="sheet-card"
-            >
-              <div className="sheet-icon" style={{ background: 'rgba(230, 126, 34, 0.15)', color: '#e67e22' }}>
-                <span className="material-icons">people</span>
-              </div>
-              <div className="sheet-content">
-                <h4 className="sheet-title">Carteira de Clientes</h4>
-                <p className="sheet-description">Clientes, leads e status de negociação</p>
-              </div>
-              <div className="sheet-arrow">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M7 17L17 7H7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-            </div>
-            </a>
-
-            <a 
-              href="https://docs.google.com/spreadsheets/d/1oqcxI5Qy2NsnYr5vdDtnI1Le7Mb5izKD-kQLYlj3VJM/edit" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="sheet-card"
-            >
-              <div className="sheet-icon" style={{ background: 'rgba(244, 194, 122, 0.15)', color: '#f4c27a' }}>
-                <span className="material-icons">precision_manufacturing</span>
-            </div>
-              <div className="sheet-content">
-                <h4 className="sheet-title">Controle de Produção</h4>
-                <p className="sheet-description">Controle de cada etapa da produção</p>
-            </div>
-              <div className="sheet-arrow">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M7 17L17 7M17 7H7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-            </div>
-            </a>
+            {externalSheets.map((sheet) => {
+              const iconStyle = { background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1' } as const;
+              return (
+                <a
+                  key={sheet.id}
+                  href={sheet.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="sheet-card"
+                >
+                  <div className="sheet-icon" style={iconStyle}>
+                    <span className="material-icons">table_chart</span>
+                  </div>
+                  <div className="sheet-content">
+                    <h4 className="sheet-title">{sheet.title ?? 'Planilha'}</h4>
+                    <p className="sheet-description">{sheet.description ?? ''}</p>
+                  </div>
+                  <div className="sheet-arrow">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M7 17L17 7M17 7H7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                </a>
+              );
+            })}
           </div>
         </section>
       </main>

@@ -22,6 +22,7 @@ type ProductSaleRow = {
   pedido?: string | null;
   cliente: string;
   produto: string;
+  tipoCliente?: string | null;
   quantidade?: number | null;
   pacotes?: number | null;
   caixas?: number | null;
@@ -55,11 +56,14 @@ function normalizeRowsVendasWithMapping(valuesWithHeader: string[][], mapping: M
   const pedidoIdx = getIndexByLogical('order_id');
   const clienteIdx = getIndexByLogical('customer');
   const produtoIdx = getIndexByLogical('product');
+  const tipoClienteIdx = getIndexByLogical('customer_type');
   const qtdIdx = getIndexByLogical('quantity');
   const pacotesIdx = getIndexByLogical('packages');
   const caixasIdx = getIndexByLogical('boxes');
   const valorIdx = getIndexByLogical('value');
   const cmvIdx = getIndexByLogical('cogs');
+  
+
 
   const out: ProductSaleRow[] = [];
   for (const row of rows) {
@@ -78,6 +82,9 @@ function normalizeRowsVendasWithMapping(valuesWithHeader: string[][], mapping: M
       if (!cliente) continue;
       const produto = produtoIdx !== undefined ? String(row[produtoIdx] ?? '').trim() : '';
       if (!produto) continue;
+      const tipoCliente = tipoClienteIdx !== undefined ? String(row[tipoClienteIdx] ?? '').trim() || null : null;
+      
+
 
       const quantidade = qtdIdx !== undefined ? Number(parseValueBR(String(row[qtdIdx] ?? ''))) : NaN;
       const safeQtd = isNaN(quantidade) ? null : quantidade;
@@ -105,6 +112,7 @@ function normalizeRowsVendasWithMapping(valuesWithHeader: string[][], mapping: M
         pedido,
         cliente,
         produto,
+        tipoCliente,
         quantidade: safeQtd,
         pacotes: safePacotes,
         caixas: safeCaixas,
