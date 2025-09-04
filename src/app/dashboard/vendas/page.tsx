@@ -1777,9 +1777,9 @@ export default function VendasDashboard() {
       <div className="access-denied-container">
         <div className="access-denied-card">
           <div className="access-denied-icon"></div>
-          <h1 className="access-denied-title">Acesso Negado</h1>
+          <h1 className="access-denied-title">Acesso à planilha necessário</h1>
           <p className="access-denied-message">
-            O usuário <span className="access-denied-email">{accessDenied.email || (session.user?.email ?? '')}</span> não tem acesso à planilha de dados deste dashboard.
+            A conta do EasyDash <span className="access-denied-email">{accessDenied.email || (session.user?.email ?? '')}</span> precisa ter acesso a esta planilha. Compartilhe a planilha com esse e-mail e recarregue a página.
           </p>
           {accessDenied.sheetUrl ? (
             <a 

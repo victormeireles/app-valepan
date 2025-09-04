@@ -139,28 +139,27 @@ function normalizeHeaderName2(name: string): string {
     .trim();
 }
 
-// Função para autenticar com Google Sheets usando NextAuth
+// Cliente Google Sheets via Service Account (não depende do token do usuário)
 async function getGoogleSheetsClient() {
-  const session = await auth();
-  
-  if (!session?.accessToken) {
-    throw new Error('Não foi possível obter token de acesso do Google');
+  const clientEmail = process.env.GOOGLE_SA_CLIENT_EMAIL ?? '';
+  const privateKeyRaw = process.env.GOOGLE_SA_PRIVATE_KEY ?? '';
+
+  if (!clientEmail || !privateKeyRaw) {
+    throw new Error('Credenciais da Service Account ausentes. Defina GOOGLE_SA_CLIENT_EMAIL e GOOGLE_SA_PRIVATE_KEY.');
   }
 
-  // Debug: mostrar informações do usuário logado
-  console.log('🔍 Usuário logado:', {
-    email: session.user?.email,
-    name: session.user?.name,
-    tenantId: session.tenantId,
-    tenantName: session.tenantName
-  });
+  // Vercel/ENV armazena com \n. Converter para quebras de linha reais
+  const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
 
-  const authClient = new google.auth.OAuth2();
-  authClient.setCredentials({
-    access_token: session.accessToken,
+  const scopes = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
+  const jwtClient = new google.auth.JWT({
+    email: clientEmail,
+    key: privateKey,
+    scopes,
   });
+  await jwtClient.authorize();
 
-  return google.sheets({ version: 'v4', auth: authClient });
+  return google.sheets({ version: 'v4', auth: jwtClient });
 }
 
 // Função para normalizar os dados da planilha (faturamento atual)
@@ -379,28 +378,17 @@ export async function GET(
         msg.includes('request had insufficient authentication scopes');
 
       if (isPermissionError) {
-        // Tentar obter e-mail do usuário e link da planilha
-        try {
-          const session = await auth();
-          return NextResponse.json(
-            {
-              error: 'Você não tem acesso à planilha deste tenant.',
-              reason: 'NO_SHEET_ACCESS',
-              email: session?.user?.email ?? '',
-              sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetCfg.sheet_id}`,
-            },
-            { status: 403 }
-          );
-        } catch {
-          return NextResponse.json(
-            {
-              error: 'Você não tem acesso à planilha deste tenant.',
-              reason: 'NO_SHEET_ACCESS',
-              sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetCfg.sheet_id}`,
-            },
-            { status: 403 }
-          );
-        }
+        // Falta de acesso da Service Account à planilha: retornar o e-mail da SA para instruir compartilhamento
+        const serviceAccountEmail = process.env.GOOGLE_SA_CLIENT_EMAIL ?? '';
+        return NextResponse.json(
+          {
+            error: 'A conta de serviço do EasyDash precisa ter acesso a esta planilha.',
+            reason: 'NO_SHEET_ACCESS',
+            email: serviceAccountEmail,
+            sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetCfg.sheet_id}`,
+          },
+          { status: 403 }
+        );
       }
       
       // Re-lançar o erro para ser tratado pelo catch externo
