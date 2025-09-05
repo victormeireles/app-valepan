@@ -30,6 +30,16 @@ export interface ProductSaleRow {
   margemPercent?: number | null;
 }
 
+// Dados de clientes
+export interface CustomerRow {
+  customer: string;
+  customer_type?: string | null;
+  first_purchase?: Date | null;
+  last_purchase?: Date | null;
+  value: number;
+  orders: number;
+}
+
 // Erro específico para quando o usuário não tem acesso à planilha
 export class AccessDeniedError extends Error {
   public readonly email: string;
@@ -45,12 +55,15 @@ export class AccessDeniedError extends Error {
 
 // Função para buscar dados da API (servidor) para um dashboard específico
 export async function fetchSheetData(
-  dashboard: 'vendas'
+  dashboard: 'sales'
 ): Promise<ProductSaleRow[]>;
 export async function fetchSheetData(
+  dashboard: 'customer'
+): Promise<CustomerRow[]>;
+export async function fetchSheetData(
   dashboard?: string
-): Promise<(SheetRow | ProductSaleRow)[]>;
-export async function fetchSheetData(dashboard: string = 'vendas') {
+): Promise<(SheetRow | ProductSaleRow | CustomerRow)[]>;
+export async function fetchSheetData(dashboard: string = 'sales') {
   try {
     const response = await fetch(`/api/sheets/${dashboard}`);
     
@@ -98,10 +111,22 @@ export async function fetchSheetData(dashboard: string = 'vendas') {
     }
     
     // Converter strings de data de volta para objetos Date
-    return data.map((row: SheetRow) => ({
-      ...row,
-      data: new Date(row.data)
-    }));
+    return data.map((row: SheetRow | ProductSaleRow | CustomerRow) => {
+      const result = { ...row };
+      
+      // Converter campos de data comuns
+      if ('data' in result && result.data) {
+        (result as { data: Date }).data = new Date(result.data);
+      }
+      if ('first_purchase' in result && result.first_purchase) {
+        (result as { first_purchase: Date }).first_purchase = new Date(result.first_purchase);
+      }
+      if ('last_purchase' in result && result.last_purchase) {
+        (result as { last_purchase: Date }).last_purchase = new Date(result.last_purchase);
+      }
+      
+      return result;
+    });
   } catch (error) {
     console.error('Erro ao buscar dados da planilha:', error);
     throw error;
@@ -115,10 +140,28 @@ export type SheetMeta = {
   hasCustomerType: boolean;
 };
 
-export async function fetchSheetMeta(dashboard: string = 'vendas'): Promise<SheetMeta> {
+export async function fetchSheetMeta(dashboard: string = 'sales'): Promise<SheetMeta> {
   const res = await fetch(`/api/sheets/meta/${dashboard}`);
   if (!res.ok) {
-    throw new Error('Falha ao carregar metadados da planilha');
+    const errorText = await res.text().catch(() => 'Erro desconhecido');
+    throw new Error(`Falha ao carregar metadados da planilha: ${res.status} - ${errorText}`);
+  }
+  return res.json();
+}
+
+// Tipo para informações de dashboard
+export interface DashboardInfo {
+  id: string;
+  name: string;
+  label: string;
+  description?: string;
+}
+
+// Função para buscar dashboards disponíveis para o tenant
+export async function fetchAvailableDashboards(): Promise<DashboardInfo[]> {
+  const res = await fetch('/api/dashboards');
+  if (!res.ok) {
+    throw new Error('Falha ao carregar dashboards disponíveis');
   }
   return res.json();
 }

@@ -107,11 +107,11 @@ export default function Home() {
 
   const dashboards = [
     {
-      id: "vendas",
+      id: "sales",
       title: "Dashboard de Vendas",
       description: "Análise de vendas por produto e margem",
       status: "Disponível",
-      href: "/dashboard/vendas",
+      href: "/dashboard/sales",
       icon: "bar_chart",
       color: "#1E88E5",
       bgColor: "rgba(30, 136, 229, 0.15)"

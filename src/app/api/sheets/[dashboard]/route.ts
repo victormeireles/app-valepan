@@ -34,6 +34,16 @@ type ProductSaleRow = {
   margemPercent?: number | null;
 };
 
+// Tipo para dados de clientes
+type CustomerRow = {
+  customer: string;
+  customer_type?: string | null;
+  first_purchase?: Date | null;
+  last_purchase?: Date | null;
+  value: number;
+  orders: number;
+};
+
 // Normalizador com mapping (vendas)
 function normalizeRowsVendasWithMapping(valuesWithHeader: string[][], mapping: Map<string, string>, headerRow: number): ProductSaleRow[] {
   if (!valuesWithHeader.length) return [];
@@ -131,6 +141,72 @@ function normalizeRowsVendasWithMapping(valuesWithHeader: string[][], mapping: M
   return out;
 }
 
+// Normalizador para dados de clientes
+function normalizeRowsCustomerWithMapping(valuesWithHeader: string[][], mapping: Map<string, string>, headerRow: number): CustomerRow[] {
+  if (!valuesWithHeader.length) return [];
+  const headerIndex = Math.max(0, (headerRow || 1) - 1);
+  const header = valuesWithHeader[headerIndex];
+  const rows = valuesWithHeader.slice(headerIndex + 1);
+
+  const headerMap = new Map<string, number>();
+  header.forEach((h, i) => headerMap.set(normalizeHeaderName2(h), i));
+
+  const getIndexByLogical = (logical: string): number | undefined => {
+    const columnName = mapping.get(logical);
+    if (!columnName) return undefined;
+    const norm = normalizeHeaderName2(columnName);
+    const index = headerMap.get(norm);
+    return index;
+  };
+
+  const customerNameIdx = getIndexByLogical('customer');
+  const customerTypeIdx = getIndexByLogical('customer_type');
+  const firstPurchaseIdx = getIndexByLogical('first_purchase');
+  const lastPurchaseIdx = getIndexByLogical('last_purchase');
+  const valueIdx = getIndexByLogical('value');
+  const ordersIdx = getIndexByLogical('orders');
+
+  const out: CustomerRow[] = [];
+  
+  for (let i = 0; i < Math.min(rows.length, 3); i++) {
+    const row = rows[i];
+  }
+
+  for (const row of rows) {
+    try {
+      // Nome do cliente é obrigatório
+      const customer = customerNameIdx !== undefined ? String(row[customerNameIdx] ?? '').trim() : '';
+      if (!customer) continue;
+
+      const customerType = customerTypeIdx !== undefined ? String(row[customerTypeIdx] ?? '').trim() || null : null;
+
+      // Parse de datas
+      const firstPurchase = firstPurchaseIdx !== undefined ? parseDate(String(row[firstPurchaseIdx] ?? '')) : null;
+      const lastPurchase = lastPurchaseIdx !== undefined ? parseDate(String(row[lastPurchaseIdx] ?? '')) : null;
+
+      // Parse de valores numéricos
+      const value = valueIdx !== undefined ? Number(parseValueBR(String(row[valueIdx] ?? ''))) : NaN;
+      const orders = ordersIdx !== undefined ? Number(parseValueBR(String(row[ordersIdx] ?? ''))) : NaN;
+
+      // Valores obrigatórios devem ser válidos
+      if (isNaN(value) || isNaN(orders)) continue;
+
+      out.push({
+        customer,
+        customer_type: customerType,
+        first_purchase: firstPurchase,
+        last_purchase: lastPurchase,
+        value,
+        orders,
+      });
+    } catch (error) {
+      continue;
+    }
+  }
+
+  return out;
+}
+
 function normalizeHeaderName2(name: string): string {
   return String(name || '')
     .normalize('NFD')
@@ -139,27 +215,20 @@ function normalizeHeaderName2(name: string): string {
     .trim();
 }
 
-// Cliente Google Sheets via Service Account (não depende do token do usuário)
+// Função para autenticar com Google Sheets usando NextAuth
 async function getGoogleSheetsClient() {
-  const clientEmail = process.env.GOOGLE_SA_CLIENT_EMAIL ?? '';
-  const privateKeyRaw = process.env.GOOGLE_SA_PRIVATE_KEY ?? '';
-
-  if (!clientEmail || !privateKeyRaw) {
-    throw new Error('Credenciais da Service Account ausentes. Defina GOOGLE_SA_CLIENT_EMAIL e GOOGLE_SA_PRIVATE_KEY.');
+  const session = await auth();
+  
+  if (!session?.accessToken) {
+    throw new Error('Não foi possível obter token de acesso do Google');
   }
 
-  // Vercel/ENV armazena com \n. Converter para quebras de linha reais
-  const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
-
-  const scopes = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
-  const jwtClient = new google.auth.JWT({
-    email: clientEmail,
-    key: privateKey,
-    scopes,
+  const authClient = new google.auth.OAuth2();
+  authClient.setCredentials({
+    access_token: session.accessToken,
   });
-  await jwtClient.authorize();
 
-  return google.sheets({ version: 'v4', auth: jwtClient });
+  return google.sheets({ version: 'v4', auth: authClient });
 }
 
 // Função para normalizar os dados da planilha (faturamento atual)
@@ -270,8 +339,14 @@ function parseValueBR(valueStr: string): number {
   }
 }
 
+// Roteador de normalizadores por dashboard
+const normalizers = {
+  sales: normalizeRowsVendasWithMapping,
+  customer: normalizeRowsCustomerWithMapping,
+} as const;
+
 // Cache para dados (evita requisições desnecessárias)
-const cache = new Map<string, { data: (SheetRow | ProductSaleRow)[]; timestamp: number }>();
+const cache = new Map<string, { data: (SheetRow | ProductSaleRow | CustomerRow)[]; timestamp: number }>();
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutos
 
 
@@ -297,11 +372,12 @@ export async function GET(
       return NextResponse.json({ error: 'Tenant não encontrado na sessão' }, { status: 400 });
     }
 
-    // sheet_configs: buscar sheet_id e sheet_tab
+    // sheet_configs: buscar sheet_id e sheet_tab por dashboard específico
     const { data: sheetCfg, error: sheetCfgErr } = await supabase
       .from('sheet_configs')
       .select('id, sheet_id, sheet_tab, header_row')
       .eq('tenant_id', tenantId)
+      .eq('dashboard', dashboard)
       .limit(1)
       .maybeSingle();
 
@@ -350,14 +426,16 @@ export async function GET(
       return NextResponse.json([]);
     }
 
-    let normalizedData: (SheetRow | ProductSaleRow)[] = [];
-    if (dashboard === 'vendas') {
-      // Para 'vendas', usar header + mappings do tenant
-      normalizedData = normalizeRowsVendasWithMapping(values, mapping, sheetCfg.header_row ?? 1);
+    let normalizedData: (SheetRow | ProductSaleRow | CustomerRow)[] = [];
+    
+    // Verificar se existe normalizador para este dashboard
+    const normalizer = normalizers[dashboard as keyof typeof normalizers];
+    if (normalizer) {
+      // Usar normalizador específico com mappings
+      normalizedData = normalizer(values, mapping, sheetCfg.header_row ?? 1);
     } else {
-      // Outros dashboards ainda não migrados
-      const dataRows = values.slice(1);
-      normalizedData = normalizeRows(dataRows);
+      // Dashboard não suportado
+      return NextResponse.json({ error: `Dashboard '${dashboard}' não é suportado` }, { status: 404 });
     }
 
       // Atualizar cache
@@ -378,17 +456,28 @@ export async function GET(
         msg.includes('request had insufficient authentication scopes');
 
       if (isPermissionError) {
-        // Falta de acesso da Service Account à planilha: retornar o e-mail da SA para instruir compartilhamento
-        const serviceAccountEmail = process.env.GOOGLE_SA_CLIENT_EMAIL ?? '';
-        return NextResponse.json(
-          {
-            error: 'A conta de serviço do EasyDash precisa ter acesso a esta planilha.',
-            reason: 'NO_SHEET_ACCESS',
-            email: serviceAccountEmail,
-            sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetCfg.sheet_id}`,
-          },
-          { status: 403 }
-        );
+        // Tentar obter e-mail do usuário e link da planilha
+        try {
+          const session = await auth();
+          return NextResponse.json(
+            {
+              error: 'Você não tem acesso à planilha deste tenant.',
+              reason: 'NO_SHEET_ACCESS',
+              email: session?.user?.email ?? '',
+              sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetCfg.sheet_id}`,
+            },
+            { status: 403 }
+          );
+        } catch {
+          return NextResponse.json(
+            {
+              error: 'Você não tem acesso à planilha deste tenant.',
+              reason: 'NO_SHEET_ACCESS',
+              sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetCfg.sheet_id}`,
+            },
+            { status: 403 }
+          );
+        }
       }
       
       // Re-lançar o erro para ser tratado pelo catch externo

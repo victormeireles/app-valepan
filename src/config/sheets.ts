@@ -8,7 +8,7 @@ export interface SheetConfig {
 
 // Mapeamento de dashboards para configurações de planilhas
 export const SHEET_CONFIGS: Record<string, SheetConfig> = {
-  vendas: {
+  sales: {
     spreadsheetId: '1_xlm8YzBpG7a3LN3lBN6snbIYxJxMefvPPZxsx7vCaM',
     range: 'Base!T:AC',
     name: 'Vendas por Produto',

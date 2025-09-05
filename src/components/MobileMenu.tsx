@@ -21,7 +21,7 @@ export default function MobileMenu() {
 
   const nav: NavItem[] = [
     { href: "/", label: "Home", icon: "home" },
-    { href: "/dashboard/vendas", label: "Vendas", icon: "bar_chart" },
+    { href: "/dashboard/sales", label: "Vendas", icon: "bar_chart" },
     { label: "Logout", icon: "logout", onClick: () => signOut({ callbackUrl: "/login" }) },
   ];
 

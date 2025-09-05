@@ -18,8 +18,7 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ dashboard: string }> }
 ) {
-  // Atualmente o meta não depende do dashboard, mas mantemos a rota por consistência
-  await context.params;
+  const { dashboard } = await context.params;
 
   try {
     const session = await auth();
@@ -33,11 +32,12 @@ export async function GET(
       return NextResponse.json({ error: 'Tenant não encontrado na sessão' }, { status: 400 });
     }
 
-    // sheet_configs do tenant
+    // sheet_configs do tenant por dashboard específico
     const { data: sheetCfg, error: sheetCfgErr } = await supabase
       .from('sheet_configs')
       .select('id')
       .eq('tenant_id', tenantId)
+      .eq('dashboard', dashboard)
       .limit(1)
       .maybeSingle();
 
