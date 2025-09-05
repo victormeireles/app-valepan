@@ -49,16 +49,16 @@ export default function VendasDashboard() {
   // Estados dos filtros
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
-  const [selectedClients, setSelectedClients] = useState<string[]>([]);
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [productSearch, setProductSearch] = useState('');
+  const [customerTypeSearch, setCustomerTypeSearch] = useState('');
   const [salesSearch, setSalesSearch] = useState('');
 
   // Estados da UI
   const [showPeriodPanel, setShowPeriodPanel] = useState(false);
   const [showClientPanel, setShowClientPanel] = useState(false);
   const [showProductPanel, setShowProductPanel] = useState(false);
+  const [showCustomerTypePanel, setShowCustomerTypePanel] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [modalData, setModalData] = useState<ModalData[]>([]);
@@ -113,6 +113,9 @@ export default function VendasDashboard() {
     maxPeriodoMeses,
   });
 
+  // Usar estados do hook
+  const { selectedClients, setSelectedClients, selectedProducts, setSelectedProducts, selectedCustomerTypes, setSelectedCustomerTypes } = filters;
+
   useEffect(() => {
     setFilteredData(filters.filteredData);
     setKpis(filters.kpis);
@@ -120,8 +123,8 @@ export default function VendasDashboard() {
   }, [filters.filteredData, filters.kpis, filters.chartData]);
 
   // Aplicar filtros
-  const applyFilters = (_data: ProductSaleRow[], _startDate: Date, _endDate: Date, clients: string[], products: string[]) => {
-    filters.apply(clients, products);
+  const applyFilters = (_data: ProductSaleRow[], _startDate: Date, _endDate: Date, clients: string[], products: string[], customerTypes: string[] = []) => {
+    filters.apply(clients, products, customerTypes);
   };
 
   // Gerar dados para gráficos
@@ -1133,6 +1136,84 @@ export default function VendasDashboard() {
             }
           }]
         });
+
+        // Implementar click para filtrar por tipo de cliente
+        ctxTiposCliente.style.cursor = 'pointer';
+        ctxTiposCliente.onclick = (evt: MouseEvent) => {
+          const points = newCharts.tiposCliente.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+          if (!points || points.length === 0) return;
+          const index = points[0].index;
+          
+          // Verificar se chartData e topTiposCliente existem
+          if (!chartData || !chartData.topTiposCliente || !Array.isArray(chartData.topTiposCliente)) {
+            console.warn('Dados de tipos de cliente não disponíveis para click');
+            return;
+          }
+          
+          // Verificar se o índice é válido
+          if (index < 0 || index >= chartData.topTiposCliente.length) {
+            console.warn('Índice de tipo de cliente inválido:', index);
+            return;
+          }
+          
+          // Recuperar tipo de cliente clicado
+          const clickedCustomerType = chartData.topTiposCliente[index];
+          if (clickedCustomerType && clickedCustomerType.cliente) {
+            try {
+              let newSelectedCustomerTypes: string[];
+              
+              // Tratamento especial para "Outros"
+              if (clickedCustomerType.cliente === 'Outros') {
+                // Obter lista de todos os tipos que não estão no Top 5
+                const tipoClienteMap = new Map<string, number>();
+                filteredData.forEach(row => {
+                  if (row.tipoCliente) {
+                    tipoClienteMap.set(row.tipoCliente, (tipoClienteMap.get(row.tipoCliente) || 0) + row.valorTotal);
+                  }
+                });
+                
+                const allTiposCliente = Array.from(tipoClienteMap.entries()).sort(([,a], [,b]) => b - a);
+                const top5TiposCliente = allTiposCliente.slice(0, 5).map(([tipoCliente]) => tipoCliente);
+                const outrosTiposCliente = allTiposCliente.slice(5).map(([tipoCliente]) => tipoCliente);
+                
+                // Verificar se já está filtrando por "Outros"
+                const isFilteringOthers = selectedCustomerTypes.length > 0 && 
+                  selectedCustomerTypes.every(tipo => outrosTiposCliente.includes(tipo)) &&
+                  outrosTiposCliente.every(tipo => selectedCustomerTypes.includes(tipo));
+                
+                if (isFilteringOthers) {
+                  // Se já está filtrando por "Outros", limpar filtro
+                  newSelectedCustomerTypes = [];
+                } else {
+                  // Filtrar por todos os tipos "Outros"
+                  newSelectedCustomerTypes = outrosTiposCliente;
+                }
+              } else {
+                // Comportamento normal para tipos específicos
+                if (selectedCustomerTypes.length === 1 && selectedCustomerTypes[0] === clickedCustomerType.cliente) {
+                  // Se já está selecionado, limpar filtro
+                  newSelectedCustomerTypes = [];
+                } else {
+                  // Selecionar apenas o tipo clicado
+                  newSelectedCustomerTypes = [clickedCustomerType.cliente];
+                }
+              }
+              
+              // Atualizar estado
+              setSelectedCustomerTypes(newSelectedCustomerTypes);
+              
+              // Reaplicar filtros
+              const startDate = new Date(periodStart);
+              const endDate = new Date(periodEnd);
+              applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts, newSelectedCustomerTypes);
+              
+            } catch (error) {
+              console.error('Erro ao processar filtro de tipo de cliente:', error);
+            }
+          } else {
+            console.warn('Dados do tipo de cliente incompletos:', clickedCustomerType);
+          }
+        };
       }
     }
 
@@ -1330,14 +1411,73 @@ export default function VendasDashboard() {
     return `Variação por cliente (${startStr}–${endStr} vs ${prevStartStr}–${prevEndStr})`;
   };
 
+  // Função para fechar todos os modais
+  const closeAllModals = () => {
+    setShowPeriodPanel(false);
+    setShowClientPanel(false);
+    setShowProductPanel(false);
+    setShowCustomerTypePanel(false);
+    setShowEngagementFilter(false);
+    setShowClientPicker(false);
+    setShowProductPicker(false);
+    setShowModal(false);
+  };
+
+  // Verificar se algum modal está aberto
+  const isAnyModalOpen = showPeriodPanel || showClientPanel || showProductPanel || showCustomerTypePanel || showEngagementFilter || showClientPicker || showProductPicker || showModal;
+
+  // Effect para fechar modais ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!isAnyModalOpen) return;
+      
+      // Verificar se o clique foi em um modal ou botão de filtro
+      const target = event.target as HTMLElement;
+      const isModalContent = target.closest('[data-modal-content]');
+      const isFilterButton = target.closest('[data-filter-button]');
+      
+      // Se clicou fora do modal e não foi em um botão de filtro, fechar todos os modais
+      if (!isModalContent && !isFilterButton) {
+        closeAllModals();
+      }
+    };
+
+    if (isAnyModalOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isAnyModalOpen]);
+
+  // Função para abrir um modal específico (fechando os outros)
+  const openModal = (modalType: 'period' | 'client' | 'product' | 'customerType' | 'engagement') => {
+    closeAllModals();
+    switch (modalType) {
+      case 'period':
+        setShowPeriodPanel(true);
+        break;
+      case 'client':
+        setShowClientPanel(true);
+        break;
+      case 'product':
+        setShowProductPanel(true);
+        break;
+      case 'customerType':
+        setShowCustomerTypePanel(true);
+        break;
+      case 'engagement':
+        setShowEngagementFilter(true);
+        break;
+    }
+  };
+
   // Handlers dos filtros
   const handlePeriodApply = () => {
     if (periodStart && periodEnd) {
       const startDate = new Date(periodStart + 'T00:00:00');
       const endDate = new Date(periodEnd + 'T00:00:00');
       
-      applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts);
-      setShowPeriodPanel(false);
+      applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts, selectedCustomerTypes);
+      closeAllModals();
     }
   };
 
@@ -1358,8 +1498,8 @@ export default function VendasDashboard() {
     
     setPeriodStart(start.toISOString().split('T')[0]);
     setPeriodEnd(end.toISOString().split('T')[0]);
-    applyFilters(rawData, start, end, selectedClients, selectedProducts);
-    setShowPeriodPanel(false);
+    applyFilters(rawData, start, end, selectedClients, selectedProducts, selectedCustomerTypes);
+    closeAllModals();
   };
 
   const handlePresetLastMonth = () => {
@@ -1370,24 +1510,32 @@ export default function VendasDashboard() {
     
     setPeriodStart(inicioMesAnterior.toISOString().split('T')[0]);
     setPeriodEnd(fimMesAnterior.toISOString().split('T')[0]);
-    applyFilters(rawData, inicioMesAnterior, fimMesAnterior, selectedClients, selectedProducts);
-    setShowPeriodPanel(false);
+    applyFilters(rawData, inicioMesAnterior, fimMesAnterior, selectedClients, selectedProducts, selectedCustomerTypes);
+    closeAllModals();
   };
 
   const handleClientApply = () => {
     const startDate = new Date(periodStart + 'T00:00:00');
     const endDate = new Date(periodEnd + 'T00:00:00');
     
-    applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts);
-    setShowClientPanel(false);
+    applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts, selectedCustomerTypes);
+    closeAllModals();
   };
 
   const handleProductApply = () => {
     const startDate = new Date(periodStart + 'T00:00:00');
     const endDate = new Date(periodEnd + 'T00:00:00');
     
-    applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts);
-    setShowProductPanel(false);
+    applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts, selectedCustomerTypes);
+    closeAllModals();
+  };
+
+  const handleCustomerTypeApply = () => {
+    const startDate = new Date(periodStart + 'T00:00:00');
+    const endDate = new Date(periodEnd + 'T00:00:00');
+    
+    applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts, selectedCustomerTypes);
+    closeAllModals();
   };
 
   const handleClientClick = (cliente: string) => {
@@ -1402,17 +1550,21 @@ export default function VendasDashboard() {
     // Aplicar filtros imediatamente
     const startDate = new Date(periodStart + 'T00:00:00');
     const endDate = new Date(periodEnd + 'T00:00:00');
-    applyFilters(rawData, startDate, endDate, selectedClients.includes(cliente) ? [] : [cliente], selectedProducts);
+    applyFilters(rawData, startDate, endDate, selectedClients.includes(cliente) ? [] : [cliente], selectedProducts, selectedCustomerTypes);
   };
 
   // Dados filtrados
   const uniqueClients = Array.from(new Set(rawData.map(row => row.cliente))).sort();
   const uniqueProducts = Array.from(new Set(rawData.map(row => row.produto).filter(Boolean))).sort();
+  const uniqueCustomerTypes = Array.from(new Set(rawData.map(row => row.tipoCliente).filter(Boolean))).sort();
   const filteredClients = uniqueClients.filter(client =>
     client.toLowerCase().includes(clientSearch.toLowerCase())
   );
   const filteredProducts = uniqueProducts.filter(product =>
     product.toLowerCase().includes(productSearch.toLowerCase())
+  );
+  const filteredCustomerTypes = uniqueCustomerTypes.filter(customerType =>
+    customerType?.toLowerCase().includes(customerTypeSearch.toLowerCase())
   );
 
   const salesData = filteredData
@@ -1515,7 +1667,8 @@ export default function VendasDashboard() {
           <button 
             className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`} 
             title="Filtrar período"
-            onClick={() => setShowPeriodPanel(!showPeriodPanel)}
+            data-filter-button
+            onClick={() => showPeriodPanel ? closeAllModals() : openModal('period')}
           >
             <span className={vendasStyles['dot-indicator']}></span>
             <span>{periodStart && periodEnd ? `${new Date(periodStart + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})} a ${new Date(periodEnd + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}` : 'Período'}</span>
@@ -1524,8 +1677,8 @@ export default function VendasDashboard() {
           
           {showPeriodPanel && (
               <>
-                <div className={vendasStyles['modal-overlay']} onClick={() => setShowPeriodPanel(false)}></div>
-            <div className={vendasStyles['period-panel']}>
+                <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+            <div className={vendasStyles['period-panel']} data-modal-content>
               <div className={vendasStyles['period-presets']}>
                 <button className={vendasStyles.chip} onClick={handlePresetThisMonth}>Este mês</button>
                 <button className={vendasStyles.chip} onClick={handlePresetLastMonth}>Mês passado</button>
@@ -1548,7 +1701,7 @@ export default function VendasDashboard() {
               </div>
               <div className={vendasStyles['period-actions']}>
                 <button className={vendasStyles.btn} onClick={handlePeriodApply}>Aplicar</button>
-                <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={() => setShowPeriodPanel(false)}>Fechar</button>
+                <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={closeAllModals}>Fechar</button>
               </div>
             </div>
               </>
@@ -1558,7 +1711,8 @@ export default function VendasDashboard() {
           <button 
             className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`} 
             title="Filtrar cliente"
-            onClick={() => setShowClientPanel(!showClientPanel)}
+            data-filter-button
+            onClick={() => showClientPanel ? closeAllModals() : openModal('client')}
           >
             <span className={vendasStyles['dot-indicator']}></span>
               <span>{selectedClients.length === 1 ? selectedClients[0] : selectedClients.length > 0 ? `${selectedClients.length} selecionados` : 'Clientes'}</span>
@@ -1567,8 +1721,8 @@ export default function VendasDashboard() {
           
           {showClientPanel && (
               <>
-                <div className={vendasStyles['modal-overlay']} onClick={() => setShowClientPanel(false)}></div>
-            <div className={vendasStyles['period-panel']}>
+                <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+            <div className={vendasStyles['period-panel']} data-modal-content>
               <div className={vendasStyles['period-row']}>
                 <label>Buscar</label>
                 <input 
@@ -1578,12 +1732,16 @@ export default function VendasDashboard() {
                   onChange={(e) => setClientSearch(e.target.value)}
                 />
               </div>
-              <div className={vendasStyles['table-scroll']} style={{maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--panel-border)', borderRadius: '10px'}}>
-                <ul style={{listStyle: 'none', margin: 0, padding: '6px 8px', display: 'grid', gap: '6px'}}>
+              <div className={vendasStyles['filter-list-container']}>
+                <ul className={vendasStyles['filter-list']}>
                   {filteredClients.map(client => (
-                    <li key={client} style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', border: '1px solid rgba(255,255,255,.06)', borderRadius: '8px', background: 'rgba(255,255,255,.04)', cursor: 'pointer'}}>
+                    <li 
+                      key={client} 
+                      className={`${vendasStyles['filter-list-item']} ${selectedClients.includes(client) ? vendasStyles['selected'] : ''}`}
+                    >
                       <input 
                         type="checkbox"
+                        className={vendasStyles['filter-checkbox']}
                         checked={selectedClients.includes(client)}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -1592,9 +1750,11 @@ export default function VendasDashboard() {
                             setSelectedClients(selectedClients.filter(c => c !== client));
                           }
                         }}
-                        style={{accentColor: 'var(--accent)'}}
                       />
-                      <span>{client}</span>
+                      <span className={vendasStyles['filter-label']}>{client}</span>
+                      <span className={vendasStyles['filter-count']}>
+                        {filteredData.filter(r => r.cliente === client).length}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -1611,7 +1771,8 @@ export default function VendasDashboard() {
           <button 
             className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`} 
             title="Filtrar produto"
-            onClick={() => setShowProductPanel(!showProductPanel)}
+            data-filter-button
+            onClick={() => showProductPanel ? closeAllModals() : openModal('product')}
           >
             <span className={vendasStyles['dot-indicator']}></span>
               <span>{selectedProducts.length === 1 ? selectedProducts[0] : selectedProducts.length > 0 ? `${selectedProducts.length} selecionados` : 'Produtos'}</span>
@@ -1620,8 +1781,8 @@ export default function VendasDashboard() {
           
           {showProductPanel && (
               <>
-                <div className={vendasStyles['modal-overlay']} onClick={() => setShowProductPanel(false)}></div>
-            <div className={vendasStyles['period-panel']}>
+                <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+            <div className={vendasStyles['period-panel']} data-modal-content>
               <div className={vendasStyles['period-row']}>
                 <label>Buscar</label>
                 <input 
@@ -1631,12 +1792,16 @@ export default function VendasDashboard() {
                   onChange={(e) => setProductSearch(e.target.value)}
                 />
               </div>
-              <div className={vendasStyles['table-scroll']} style={{maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--panel-border)', borderRadius: '10px'}}>
-                <ul style={{listStyle: 'none', margin: 0, padding: '6px 8px', display: 'grid', gap: '6px'}}>
+              <div className={vendasStyles['filter-list-container']}>
+                <ul className={vendasStyles['filter-list']}>
                   {filteredProducts.map(product => (
-                    <li key={product} style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', border: '1px solid rgba(255,255,255,.06)', borderRadius: '8px', background: 'rgba(255,255,255,.04)', cursor: 'pointer'}}>
+                    <li 
+                      key={product} 
+                      className={`${vendasStyles['filter-list-item']} ${selectedProducts.includes(product) ? vendasStyles['selected'] : ''}`}
+                    >
                       <input 
                         type="checkbox"
+                        className={vendasStyles['filter-checkbox']}
                         checked={selectedProducts.includes(product)}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -1645,18 +1810,82 @@ export default function VendasDashboard() {
                             setSelectedProducts(selectedProducts.filter(p => p !== product));
                           }
                         }}
-                        style={{accentColor: 'var(--accent)'}}
                       />
-                      <span>{product}</span>
+                      <span className={vendasStyles['filter-label']}>{product}</span>
+                      <span className={vendasStyles['filter-count']}>
+                        {filteredData.filter(r => r.produto === product).length}
+                      </span>
                     </li>
                   ))}
                 </ul>
               </div>
                             <div className={vendasStyles['period-actions']}>
                 <button className={vendasStyles.btn} onClick={handleProductApply}>Aplicar</button>
-                <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={() => setSelectedClients([])}>Limpar</button>
+                <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={() => setSelectedProducts([])}>Limpar</button>
               </div>
           </div>
+              </>
+          )}
+
+          {/* Filtro de tipo de cliente */}
+          {meta?.hasCustomerType && (
+            <button 
+              className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`} 
+              title="Filtrar tipo de cliente"
+              data-filter-button
+              onClick={() => showCustomerTypePanel ? closeAllModals() : openModal('customerType')}
+            >
+              <span className={vendasStyles['dot-indicator']}></span>
+              <span>{selectedCustomerTypes.length === 1 ? selectedCustomerTypes[0] : selectedCustomerTypes.length > 0 ? `${selectedCustomerTypes.length} selecionados` : 'Tipos de Cliente'}</span>
+              <span className={vendasStyles.caret}>▾</span>
+            </button>
+          )}
+          
+          {showCustomerTypePanel && meta?.hasCustomerType && (
+              <>
+                <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+            <div className={vendasStyles['period-panel']} data-modal-content>
+              <div className={vendasStyles['period-row']}>
+                <label>Buscar</label>
+                <input 
+                  type="text" 
+                  placeholder="Digite para filtrar"
+                  value={customerTypeSearch}
+                  onChange={(e) => setCustomerTypeSearch(e.target.value)}
+                />
+              </div>
+              <div className={vendasStyles['filter-list-container']}>
+                <ul className={vendasStyles['filter-list']}>
+                  {filteredCustomerTypes.map(customerType => (
+                    <li 
+                      key={customerType} 
+                      className={`${vendasStyles['filter-list-item']} ${selectedCustomerTypes.includes(customerType ?? '') ? vendasStyles['selected'] : ''}`}
+                    >
+                      <input 
+                        type="checkbox"
+                        className={vendasStyles['filter-checkbox']}
+                        checked={selectedCustomerTypes.includes(customerType ?? '')}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCustomerTypes([...selectedCustomerTypes, customerType ?? '']);
+                          } else {
+                            setSelectedCustomerTypes(selectedCustomerTypes.filter(t => t !== customerType));
+                          }
+                        }}
+                      />
+                      <span className={vendasStyles['filter-label']}>{customerType}</span>
+                      <span className={vendasStyles['filter-count']}>
+                        {filteredData.filter(r => r.tipoCliente === customerType).length}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className={vendasStyles['period-actions']}>
+                <button className={vendasStyles.btn} onClick={handleCustomerTypeApply}>Aplicar</button>
+                <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={() => setSelectedCustomerTypes([])}>Limpar</button>
+              </div>
+            </div>
               </>
           )}
           </div>
@@ -1670,7 +1899,8 @@ export default function VendasDashboard() {
           <button 
             className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`} 
             title="Filtrar período"
-            onClick={() => setShowPeriodPanel(!showPeriodPanel)}
+            data-filter-button
+            onClick={() => showPeriodPanel ? closeAllModals() : openModal('period')}
           >
             <span className={vendasStyles['dot-indicator']}></span>
             <span>{periodStart && periodEnd ? `${new Date(periodStart + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})} a ${new Date(periodEnd + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}` : 'Período'}</span>
@@ -1680,7 +1910,7 @@ export default function VendasDashboard() {
           {showPeriodPanel && (
             <>
               <div className={vendasStyles['modal-overlay']} onClick={() => setShowPeriodPanel(false)}></div>
-              <div className={vendasStyles['period-panel']}>
+              <div className={vendasStyles['period-panel']} data-modal-content>
                 <div className={vendasStyles['period-presets']}>
                   <button className={vendasStyles.chip} onClick={handlePresetThisMonth}>Este mês</button>
                   <button className={vendasStyles.chip} onClick={handlePresetLastMonth}>Mês passado</button>
@@ -1703,7 +1933,7 @@ export default function VendasDashboard() {
                 </div>
                 <div className={vendasStyles['period-actions']}>
                   <button className={vendasStyles.btn} onClick={handlePeriodApply}>Aplicar</button>
-                  <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={() => setShowPeriodPanel(false)}>Fechar</button>
+                  <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={closeAllModals}>Fechar</button>
                 </div>
               </div>
             </>
@@ -1713,7 +1943,8 @@ export default function VendasDashboard() {
           <button 
             className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`} 
             title="Filtrar cliente"
-            onClick={() => setShowClientPanel(!showClientPanel)}
+            data-filter-button
+            onClick={() => showClientPanel ? closeAllModals() : openModal('client')}
           >
             <span className={vendasStyles['dot-indicator']}></span>
             <span>{selectedClients.length === 1 ? selectedClients[0] : selectedClients.length > 0 ? `${selectedClients.length} clientes` : 'Clientes'}</span>
@@ -1722,8 +1953,8 @@ export default function VendasDashboard() {
           
           {showClientPanel && (
             <>
-                            <div className={vendasStyles['modal-overlay']} onClick={() => setShowClientPanel(false)}></div>
-            <div className={vendasStyles['period-panel']}>
+                            <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+            <div className={vendasStyles['period-panel']} data-modal-content>
               <div className={vendasStyles['period-row']}>
                   <label>Buscar</label>
                   <input 
@@ -1733,27 +1964,33 @@ export default function VendasDashboard() {
                     onChange={(e) => setClientSearch(e.target.value)}
                   />
                 </div>
-              <div className={vendasStyles['table-scroll']} style={{maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--panel-border)', borderRadius: '10px'}}>
-                  <ul style={{listStyle: 'none', margin: 0, padding: '6px 8px', display: 'grid', gap: '6px'}}>
-                    {filteredClients.map(client => (
-                      <li key={client} style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', border: '1px solid rgba(255,255,255,.06)', borderRadius: '8px', background: 'rgba(255,255,255,.04)', cursor: 'pointer'}}>
-                        <input 
-                          type="checkbox"
-                          checked={selectedClients.includes(client)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedClients([...selectedClients, client]);
-                            } else {
-                              setSelectedClients(selectedClients.filter(c => c !== client));
-                            }
-                          }}
-                          style={{accentColor: 'var(--accent)'}}
-                        />
-                        <span>{client}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+              <div className={vendasStyles['filter-list-container']}>
+                <ul className={vendasStyles['filter-list']}>
+                  {filteredClients.map(client => (
+                    <li 
+                      key={client} 
+                      className={`${vendasStyles['filter-list-item']} ${selectedClients.includes(client) ? vendasStyles['selected'] : ''}`}
+                    >
+                      <input 
+                        type="checkbox"
+                        className={vendasStyles['filter-checkbox']}
+                        checked={selectedClients.includes(client)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedClients([...selectedClients, client]);
+                          } else {
+                            setSelectedClients(selectedClients.filter(c => c !== client));
+                          }
+                        }}
+                      />
+                      <span className={vendasStyles['filter-label']}>{client}</span>
+                      <span className={vendasStyles['filter-count']}>
+                        {filteredData.filter(r => r.cliente === client).length}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
                               <div className={vendasStyles['period-actions']}>
                 <button className={vendasStyles.btn} onClick={handleClientApply}>Aplicar</button>
                 <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={() => setSelectedClients([])}>Limpar</button>
@@ -1766,7 +2003,8 @@ export default function VendasDashboard() {
           <button 
             className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`} 
             title="Filtrar produto"
-            onClick={() => setShowProductPanel(!showProductPanel)}
+            data-filter-button
+            onClick={() => showProductPanel ? closeAllModals() : openModal('product')}
           >
             <span className={vendasStyles['dot-indicator']}></span>
             <span>{selectedProducts.length === 1 ? selectedProducts[0] : selectedProducts.length > 0 ? `${selectedProducts.length} produtos` : 'Produtos'}</span>
@@ -1775,8 +2013,8 @@ export default function VendasDashboard() {
           
           {showProductPanel && (
             <>
-                            <div className={vendasStyles['modal-overlay']} onClick={() => setShowProductPanel(false)}></div>
-            <div className={vendasStyles['period-panel']}>
+                            <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+            <div className={vendasStyles['period-panel']} data-modal-content>
               <div className={vendasStyles['period-row']}>
                   <label>Buscar</label>
                   <input 
@@ -1810,6 +2048,62 @@ export default function VendasDashboard() {
                               <div className={vendasStyles['period-actions']}>
                 <button className={vendasStyles.btn} onClick={handleProductApply}>Aplicar</button>
                 <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={() => setSelectedProducts([])}>Limpar</button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Filtro de tipo de cliente */}
+          {meta?.hasCustomerType && (
+            <button 
+              className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`} 
+              title="Filtrar tipo de cliente"
+              data-filter-button
+              onClick={() => showCustomerTypePanel ? closeAllModals() : openModal('customerType')}
+            >
+              <span className={vendasStyles['dot-indicator']}></span>
+              <span>{selectedCustomerTypes.length === 1 ? selectedCustomerTypes[0] : selectedCustomerTypes.length > 0 ? `${selectedCustomerTypes.length} tipos` : 'Tipos de Cliente'}</span>
+              <span className={vendasStyles.caret}>▾</span>
+            </button>
+          )}
+          
+          {showCustomerTypePanel && meta?.hasCustomerType && (
+            <>
+                            <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+            <div className={vendasStyles['period-panel']} data-modal-content>
+              <div className={vendasStyles['period-row']}>
+                  <label>Buscar</label>
+                  <input 
+                    type="text" 
+                    placeholder="Digite para filtrar"
+                    value={customerTypeSearch}
+                    onChange={(e) => setCustomerTypeSearch(e.target.value)}
+                  />
+                </div>
+              <div className={vendasStyles['table-scroll']} style={{maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--panel-border)', borderRadius: '10px'}}>
+                  <ul style={{listStyle: 'none', margin: 0, padding: '6px 8px', display: 'grid', gap: '6px'}}>
+                    {filteredCustomerTypes.map(customerType => (
+                      <li key={customerType} style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', border: '1px solid rgba(255,255,255,.06)', borderRadius: '8px', background: 'rgba(255,255,255,.04)', cursor: 'pointer'}}>
+                        <input 
+                          type="checkbox"
+                          checked={selectedCustomerTypes.includes(customerType ?? '')}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedCustomerTypes([...selectedCustomerTypes, customerType ?? '']);
+                            } else {
+                              setSelectedCustomerTypes(selectedCustomerTypes.filter(t => t !== (customerType ?? '')));
+                            }
+                          }}
+                          style={{accentColor: 'var(--accent)'}}
+                        />
+                        <span>{customerType}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                              <div className={vendasStyles['period-actions']}>
+                <button className={vendasStyles.btn} onClick={handleCustomerTypeApply}>Aplicar</button>
+                <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={() => setSelectedCustomerTypes([])}>Limpar</button>
                 </div>
               </div>
             </>
@@ -1855,7 +2149,18 @@ export default function VendasDashboard() {
             // Layout com dois gráficos na mesma linha
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', gridColumn: 'span 2' }}>
               {/* Gráfico de Tipos de Cliente - 1/3 */}
-              <CustomerTypesChart chartData={chartData} />
+              <CustomerTypesChart 
+                chartData={chartData}
+                filteredData={filteredData}
+                selectedCustomerTypes={selectedCustomerTypes}
+                periodStart={periodStart}
+                periodEnd={periodEnd}
+                rawData={rawData}
+                selectedClients={selectedClients}
+                selectedProducts={selectedProducts}
+                applyFilters={applyFilters}
+                setSelectedCustomerTypes={setSelectedCustomerTypes}
+              />
 
               {/* Gráfico de Produtos - 2/3 */}
               <TopProductsChart
@@ -2049,7 +2354,8 @@ export default function VendasDashboard() {
              <h3>Engajamento de clientes</h3>
                <button 
                  className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`}
-                 onClick={() => setShowEngagementFilter(true)}
+                 data-filter-button
+                 onClick={() => openModal('engagement')}
                 style={{ fontSize: '12px', padding: '6px 12px' }}
                >
                  Configurar Períodos
@@ -2074,6 +2380,7 @@ export default function VendasDashboard() {
             setModalTitle={setModalTitle}
             setModalData={setModalData}
             setShowModal={setShowModal}
+            closeAllModals={closeAllModals}
           />
 
           <ClientsByProductTable
@@ -2089,6 +2396,7 @@ export default function VendasDashboard() {
             setModalTitle={setModalTitle}
             setModalData={setModalData}
             setShowModal={setShowModal}
+            closeAllModals={closeAllModals}
           />
         </section>
       </main>
@@ -2099,18 +2407,18 @@ export default function VendasDashboard() {
         rows={modalData}
         meta={meta}
         formatK={formatK}
-        onClose={() => setShowModal(false)}
+        closeAllModals={closeAllModals}
       />
 
       {/* Modal de Filtro de Engajamento */}
       {showEngagementFilter && (
         <>
-          <div className={vendasStyles['modal-overlay']} onClick={() => setShowEngagementFilter(false)}></div>
-          <div className={vendasStyles.modal}>
+          <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+          <div className={vendasStyles.modal} data-modal-content>
             <div className={vendasStyles['modal-card']}>
               <div className={vendasStyles['modal-head']}>
                 <h4>Configurar Períodos de Engajamento</h4>
-                <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={() => setShowEngagementFilter(false)}>Fechar</button>
+                <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={closeAllModals}>Fechar</button>
               </div>
               <div style={{padding: '20px'}}>
                 <div style={{marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px'}}>
@@ -2200,14 +2508,14 @@ export default function VendasDashboard() {
                 <div style={{display: 'flex', gap: '12px', justifyContent: 'flex-end'}}>
                   <button 
                     className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`}
-                    onClick={() => setShowEngagementFilter(false)}
+                    onClick={closeAllModals}
                   >
                     Cancelar
                   </button>
                   <button 
                     className={`${vendasStyles.btn} ${vendasStyles.btnPrimary}`}
                     onClick={() => {
-                      setShowEngagementFilter(false);
+                      closeAllModals();
                       // Recarregar os dados com os novos períodos
                       sales.reload();
                     }}

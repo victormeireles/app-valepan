@@ -215,8 +215,28 @@ function normalizeHeaderName2(name: string): string {
     .trim();
 }
 
-// Função para autenticar com Google Sheets usando NextAuth
-async function getGoogleSheetsClient() {
+// Função para autenticar com Google Sheets usando Service Account
+async function getGoogleSheetsClientWithServiceAccount() {
+  const clientEmail = process.env.GOOGLE_SA_CLIENT_EMAIL;
+  const privateKey = process.env.GOOGLE_SA_PRIVATE_KEY;
+  
+  if (!clientEmail || !privateKey) {
+    throw new Error('Credenciais da Service Account não configuradas');
+  }
+
+  const authClient = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: clientEmail,
+      private_key: privateKey.replace(/\\n/g, '\n'),
+    },
+    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+  });
+
+  return google.sheets({ version: 'v4', auth: authClient });
+}
+
+// Função para autenticar com Google Sheets usando NextAuth (OAuth2)
+async function getGoogleSheetsClientWithOAuth() {
   const session = await auth();
   
   if (!session?.accessToken) {
@@ -229,6 +249,15 @@ async function getGoogleSheetsClient() {
   });
 
   return google.sheets({ version: 'v4', auth: authClient });
+}
+
+// Função principal para autenticar com Google Sheets
+async function getGoogleSheetsClient(useServiceAccount: boolean = false) {
+  if (useServiceAccount) {
+    return getGoogleSheetsClientWithServiceAccount();
+  } else {
+    return getGoogleSheetsClientWithOAuth();
+  }
 }
 
 // Função para normalizar os dados da planilha (faturamento atual)
@@ -375,7 +404,7 @@ export async function GET(
     // sheet_configs: buscar sheet_id e sheet_tab por dashboard específico
     const { data: sheetCfg, error: sheetCfgErr } = await supabase
       .from('sheet_configs')
-      .select('id, sheet_id, sheet_tab, header_row')
+      .select('id, sheet_id, sheet_tab, header_row, service_account_access')
       .eq('tenant_id', tenantId)
       .eq('dashboard', dashboard)
       .limit(1)
@@ -411,7 +440,8 @@ export async function GET(
     }
 
     // Buscar dados da Google Sheets (apenas dados reais)
-    const sheets = await getGoogleSheetsClient();
+    const useServiceAccount = Boolean(sheetCfg.service_account_access);
+    const sheets = await getGoogleSheetsClient(useServiceAccount);
     
     try {
       // Ler toda a aba (o normalizador usará o cabeçalho e mappings)
@@ -459,20 +489,33 @@ export async function GET(
         // Tentar obter e-mail do usuário e link da planilha
         try {
           const session = await auth();
+          const authType = useServiceAccount ? 'Service Account' : 'OAuth2';
+          const authEmail = useServiceAccount 
+            ? process.env.GOOGLE_SA_CLIENT_EMAIL 
+            : session?.user?.email ?? '';
+          
           return NextResponse.json(
             {
-              error: 'Você não tem acesso à planilha deste tenant.',
+              error: `Acesso à planilha necessário`,
               reason: 'NO_SHEET_ACCESS',
-              email: session?.user?.email ?? '',
+              email: authEmail,
+              authType,
               sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetCfg.sheet_id}`,
             },
             { status: 403 }
           );
         } catch {
+          const authType = useServiceAccount ? 'Service Account' : 'OAuth2';
+          const authEmail = useServiceAccount 
+            ? process.env.GOOGLE_SA_CLIENT_EMAIL 
+            : '';
+          
           return NextResponse.json(
             {
-              error: 'Você não tem acesso à planilha deste tenant.',
+              error: `Acesso à planilha necessário`,
               reason: 'NO_SHEET_ACCESS',
+              email: authEmail,
+              authType,
               sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetCfg.sheet_id}`,
             },
             { status: 403 }

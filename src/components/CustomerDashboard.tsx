@@ -39,7 +39,7 @@ export default function CustomerDashboard() {
   };
 
   if (loading) {
-    return <LoadingOverlay />;
+    return <LoadingOverlay show={true} />;
   }
 
   if (error) {

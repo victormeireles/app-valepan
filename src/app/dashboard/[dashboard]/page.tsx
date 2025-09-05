@@ -52,7 +52,7 @@ export default function DynamicDashboard() {
   }, []);
 
   if (loading) {
-    return <LoadingOverlay />;
+    return <LoadingOverlay show={true} />;
   }
 
   if (error) {

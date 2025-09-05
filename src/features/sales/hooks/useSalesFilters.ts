@@ -20,9 +20,11 @@ export type UseSalesFiltersState = {
   setSelectedClients: (v: string[]) => void;
   selectedProducts: string[];
   setSelectedProducts: (v: string[]) => void;
+  selectedCustomerTypes: string[];
+  setSelectedCustomerTypes: (v: string[]) => void;
   kpis: KpisData | null;
   chartData: ChartDataStructure | null;
-  apply: (clients: string[], products: string[]) => void;
+  apply: (clients: string[], products: string[], customerTypes: string[]) => void;
 };
 
 export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState {
@@ -30,6 +32,7 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
 
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [selectedCustomerTypes, setSelectedCustomerTypes] = useState<string[]>([]);
   const [filteredData, setFilteredData] = useState<ProductSaleRow[]>([]);
   const [kpis, setKpis] = useState<KpisData | null>(null);
   const [chartData, setChartData] = useState<ChartDataStructure | null>(null);
@@ -37,7 +40,7 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
   const startDate = useMemo(() => (periodStart ? new Date(periodStart + 'T00:00:00') : null), [periodStart]);
   const endDate = useMemo(() => (periodEnd ? new Date(periodEnd + 'T00:00:00') : null), [periodEnd]);
 
-  const apply = (clients: string[], products: string[]) => {
+  const apply = (clients: string[], products: string[], customerTypes: string[] = []) => {
     if (!startDate || !endDate) return;
 
     const s = new Date(startDate); s.setHours(0, 0, 0, 0);
@@ -46,6 +49,7 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
     let f = rawData.filter(row => row.data >= s && row.data <= e);
     if (clients.length > 0) f = f.filter(r => clients.includes(r.cliente));
     if (products.length > 0) f = f.filter(r => r.produto && products.includes(r.produto));
+    if (customerTypes.length > 0) f = f.filter(r => r.tipoCliente && customerTypes.includes(r.tipoCliente));
 
     setFilteredData(f);
 
@@ -96,10 +100,10 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
 
   useEffect(() => {
     if (rawData.length > 0 && meta && startDate && endDate) {
-      apply(selectedClients, selectedProducts);
+      apply(selectedClients, selectedProducts, selectedCustomerTypes);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawData, meta, periodStart, periodEnd, selectedClients, selectedProducts, quaseInativoMeses, inativoMeses, maxPeriodoMeses]);
+  }, [rawData, meta, periodStart, periodEnd, selectedClients, selectedProducts, selectedCustomerTypes, quaseInativoMeses, inativoMeses, maxPeriodoMeses]);
 
   return {
     filteredData,
@@ -107,6 +111,8 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
     setSelectedClients,
     selectedProducts,
     setSelectedProducts,
+    selectedCustomerTypes,
+    setSelectedCustomerTypes,
     kpis,
     chartData,
     apply,

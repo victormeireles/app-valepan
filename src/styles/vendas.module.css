@@ -499,9 +499,113 @@
 	display: flex; justify-content: space-between; align-items: center; 
 	padding: 12px 14px; border-bottom: 1px solid var(--panel-border); 
   }
-  .modal-table { width: 100%; border-collapse: collapse; }
+  .modal-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    table-layout: fixed;
+  }
+  
   .modal-table th, .modal-table td { 
-	text-align: left; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.06); 
+    text-align: left; 
+    padding: 10px 12px; 
+    border-bottom: 1px solid rgba(255,255,255,.06); 
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .modal-table th {
+    background: var(--panel-bg);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .modal-table th > span {
+    flex: 1;
+  }
+
+  /* Larguras específicas para cada coluna */
+  .modal-table th:nth-child(1), .modal-table td:nth-child(1) { 
+    width: 200px; /* Produto/Cliente - mais largo */
+    min-width: 180px;
+  }
+  
+  .modal-table th:nth-child(2), .modal-table td:nth-child(2) { 
+    width: 100px; /* Unidades */
+    min-width: 90px;
+  }
+  
+  .modal-table th:nth-child(3), .modal-table td:nth-child(3) { 
+    width: 100px; /* Pacotes */
+    min-width: 90px;
+  }
+  
+  .modal-table th:nth-child(4), .modal-table td:nth-child(4) { 
+    width: 100px; /* Caixas */
+    min-width: 90px;
+  }
+  
+  .modal-table th:nth-child(5), .modal-table td:nth-child(5) { 
+    width: 130px; /* Valor */
+    min-width: 120px;
+  }
+  
+  .modal-table th:nth-child(6), .modal-table td:nth-child(6) { 
+    width: 120px; /* Margem Bruta */
+    min-width: 110px;
+  }
+  
+  .modal-table th:nth-child(7), .modal-table td:nth-child(7) { 
+    width: 100px; /* PMP/PMV */
+    min-width: 90px;
+  }
+  
+  .modal-table th:nth-child(8), .modal-table td:nth-child(8) { 
+    width: 100px; /* CMP/CMV */
+    min-width: 90px;
+  }
+
+  /* Container da tabela no modal */
+  .modal .table-scroll {
+    min-width: 900px; /* Largura mínima para acomodar todas as colunas */
+    overflow-x: auto;
+  }
+
+  /* Garantir que o modal tenha largura suficiente */
+  .modal {
+    min-width: 950px;
+    max-width: 95vw;
+  }
+
+  /* Responsividade para telas menores */
+  @media (max-width: 1024px) {
+    .modal {
+      min-width: 90vw;
+      max-width: 95vw;
+    }
+    
+    .modal .table-scroll {
+      min-width: 800px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .modal {
+      min-width: 95vw;
+      max-width: 98vw;
+    }
+    
+    .modal .table-scroll {
+      min-width: 700px;
+    }
   }
 
   .loading { 
@@ -580,4 +684,246 @@
 	background: rgba(255,255,255,.02); 
   }
 	.period-panel { width: 280px; right: 0; }
+  }
+
+  /* Download Button Styles */
+  .download-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    user-select: none;
+    text-decoration: none;
+    outline: none;
+    box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.1);
+  }
+
+  .download-btn:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  .download-btn-content {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 2;
+  }
+
+  .download-btn-icon {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.2s ease;
+  }
+
+  .download-btn-text {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+  }
+
+  .download-btn-shine {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    transition: left 0.6s ease;
+    z-index: 1;
+  }
+
+  .download-btn:hover .download-btn-shine {
+    left: 100%;
+  }
+
+  .download-btn-gradient {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+  }
+
+  .download-btn:hover .download-btn-gradient {
+    opacity: 1;
+  }
+
+  .download-btn:hover .download-btn-icon {
+    transform: translateY(-1px);
+  }
+
+  .download-btn-pressed {
+    transform: scale(0.95);
+    box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.15);
+  }
+
+  .download-btn-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  .download-btn-loading {
+    cursor: wait;
+  }
+
+  .download-btn-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Size variants */
+  .download-btn-sm {
+    padding: 8px 16px;
+    font-size: 12px;
+    min-height: 32px;
+  }
+
+  .download-btn-md {
+    padding: 10px 20px;
+    font-size: 14px;
+    min-height: 40px;
+  }
+
+  .download-btn-lg {
+    padding: 12px 24px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  /* Color variants */
+  .download-btn-primary {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.3);
+  }
+
+  .download-btn-primary:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.4);
+    transform: translateY(-2px);
+  }
+
+  .download-btn-secondary {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.3);
+  }
+
+  .download-btn-secondary:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    box-shadow: 0 6px 20px 0 rgba(59, 130, 246, 0.4);
+    transform: translateY(-2px);
+  }
+
+  .download-btn-ghost {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e5e7eb;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.1);
+  }
+
+  .download-btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+
+  /* Filter List Styles */
+  .filter-list-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+  }
+
+  .filter-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px 8px;
+    display: grid;
+    gap: 6px;
+  }
+
+  .filter-list-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .filter-list-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .filter-list-item.selected {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+
+  .filter-list-item.selected:hover {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.4);
+  }
+
+  .filter-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: #10b981;
+  }
+
+  .filter-label {
+    flex: 1;
+    font-size: 14px;
+    color: #e5e7eb;
+    user-select: none;
+  }
+
+  .filter-count {
+    font-size: 12px;
+    color: #9ca3af;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* Modal Header Actions */
+  .modal-header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
   }

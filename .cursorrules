@@ -4,6 +4,8 @@
 - All CSS must be in separate .css files
 - Use CSS Modules (.module.css) for component-specific styles
 - Use globals.css only for truly global styles
+- **ABSOLUTELY NO inline styles in JSX** (style={{...}})
+- **ABSOLUTELY NO className with template literals** for dynamic styles
 
 ## CSS File Organization:
 - `src/styles/globals.css` - Global styles, CSS variables, resets
@@ -15,12 +17,28 @@
 1. Evaluate if it's truly global → use globals.css
 2. Is it component-specific → use [component].module.css
 3. Is it feature-specific → use [feature].module.css
-4. NEVER inline styles in JSX unless absolutely necessary
+4. **NEVER use inline styles** - always create CSS classes
+5. **NEVER use dynamic className generation** - use CSS variables or conditional classes
+
+## CSS Class Naming Conventions:
+- Use descriptive, semantic class names
+- Use kebab-case for class names
+- Use BEM methodology when appropriate
+- Group related styles together
+- Use CSS variables for dynamic values
+
+## Dynamic Styling Solutions:
+- Use CSS variables for dynamic values: `--custom-property: value`
+- Use conditional classes: `className={condition ? 'class-a' : 'class-b'}`
+- Use CSS modules with computed class names
+- Use CSS-in-JS libraries only when absolutely necessary
 
 ## Always ask before adding CSS:
 - "Should this go in globals.css or a module?"
 - "Is this style reusable across components?"
 - "Can this be achieved with CSS variables?"
+- "Is there an existing class I can reuse or extend?"
+- "Can I avoid inline styles by creating a proper CSS class?"
 
 # TypeScript & Build Rules
 

@@ -15,6 +15,7 @@ type Props = {
   setModalTitle: (v: string) => void;
   setModalData: (rows: ModalData[]) => void;
   setShowModal: (v: boolean) => void;
+  closeAllModals: () => void;
 };
 
 export function ClientsByProductTable(props: Props) {
@@ -31,6 +32,7 @@ export function ClientsByProductTable(props: Props) {
     setModalTitle,
     setModalData,
     setShowModal,
+    closeAllModals,
   } = props;
 
   return (
@@ -39,13 +41,13 @@ export function ClientsByProductTable(props: Props) {
         <h3>Clientes desse produto</h3>
         <p><small>Selecione um produto para ver seus clientes</small></p>
         <div style={{ position: 'relative', display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className={vendasStyles.chip} onClick={() => { setShowProductPicker(!showProductPicker); setProductPickerTemp(selectProduto); }}>
+          <button className={vendasStyles.chip} data-filter-button onClick={() => { setShowProductPicker(!showProductPicker); setProductPickerTemp(selectProduto); }}>
             {selectProduto || 'Selecionar produto'}
           </button>
           {showProductPicker && (
             <>
-              <div className={vendasStyles['modal-overlay']} onClick={() => setShowProductPicker(false)}></div>
-              <div className={vendasStyles['period-panel']} style={{ right: 0, bottom: 54, top: 'auto' }}>
+              <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+              <div className={vendasStyles['period-panel']} style={{ right: 0, bottom: 54, top: 'auto' }} data-modal-content>
                 <div className={vendasStyles['period-row']}>
                   <label>Buscar</label>
                   <input type="text" placeholder="Digite para filtrar" value={productPickerQuery} onChange={(e) => setProductPickerQuery(e.target.value)} />
