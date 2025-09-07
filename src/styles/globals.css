@@ -64,6 +64,13 @@ body {
 @media (max-width: 768px) {
   .sidebar {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+  
+  .app-content {
+    margin-left: 0 !important;
   }
 }
 

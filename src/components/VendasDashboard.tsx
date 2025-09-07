@@ -2138,7 +2138,6 @@ export default function VendasDashboard() {
             rawData={rawData}
             selectedProducts={selectedProducts}
             applyFilters={applyFilters}
-            formatK={formatK}
             setSelectedClients={setSelectedClients}
           />
         </section>

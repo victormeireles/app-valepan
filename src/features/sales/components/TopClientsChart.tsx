@@ -11,11 +11,10 @@ type Props = {
   rawData: ProductSaleRow[];
   selectedProducts: string[];
   applyFilters: (data: ProductSaleRow[], startDate: Date, endDate: Date, clients: string[], products: string[]) => void;
-  formatK: (n: number) => string;
   setSelectedClients: (next: string[]) => void;
 };
 
-export function TopClientsChart({ chartData, filteredData, selectedClients, periodStart, periodEnd, rawData, selectedProducts, applyFilters, formatK, setSelectedClients }: Props) {
+export function TopClientsChart({ chartData, filteredData, selectedClients, periodStart, periodEnd, rawData, selectedProducts, applyFilters, setSelectedClients }: Props) {
   return (
     <div className={vendasStyles.card}>
       <h3>Top clientes por valor</h3>
@@ -25,7 +24,7 @@ export function TopClientsChart({ chartData, filteredData, selectedClients, peri
           <canvas id="chart-clientes"></canvas>
         </div>
         <ul className={vendasStyles['topcli-legend']}>
-          {chartData?.topClientes.map((cliente: TopItem, index: number) => {
+          {chartData?.topClientes.map((cliente: TopItem) => {
             const totalPeriodo = chartData.topClientes.reduce((sum: number, c: TopItem) => sum + c.valor, 0) || 1;
             const pct = ((cliente.valor ?? 0) / totalPeriodo * 100) || 0;
 

@@ -1,12 +1,11 @@
-import type { ChartDataStructure, ModalData } from '@/features/sales/types';
-import type { ProductSaleRow } from '@/lib/sheets';
+import type { ChartDataStructure } from '@/features/sales/types';
 import vendasStyles from '@/styles/vendas.module.css';
 
 type Props = {
   chartData: ChartDataStructure | null;
 };
 
-export function EngagementChart({ chartData }: Props) {
+export function EngagementChart({ }: Props) {
   return (
     <div className={vendasStyles.card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>

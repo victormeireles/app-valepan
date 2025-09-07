@@ -168,9 +168,6 @@ function normalizeRowsCustomerWithMapping(valuesWithHeader: string[][], mapping:
 
   const out: CustomerRow[] = [];
   
-  for (let i = 0; i < Math.min(rows.length, 3); i++) {
-    const row = rows[i];
-  }
 
   for (const row of rows) {
     try {
@@ -199,7 +196,7 @@ function normalizeRowsCustomerWithMapping(valuesWithHeader: string[][], mapping:
         value,
         orders,
       });
-    } catch (error) {
+    } catch {
       continue;
     }
   }
@@ -260,7 +257,8 @@ async function getGoogleSheetsClient(useServiceAccount: boolean = false) {
   }
 }
 
-// Função para normalizar os dados da planilha (faturamento atual)
+// Função para normalizar os dados da planilha (faturamento atual) - não utilizada
+/*
 function normalizeRows(values: string[][]): SheetRow[] {
   const normalizedRows: SheetRow[] = [];
 
@@ -323,6 +321,7 @@ function normalizeRows(values: string[][]): SheetRow[] {
 
   return normalizedRows;
 }
+*/
 
 
 

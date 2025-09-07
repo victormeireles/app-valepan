@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
-import { useTenant } from "@/hooks/useTenant";
+import LogoCompact from "@/components/LogoCompact";
+import { fetchAvailableDashboards, type DashboardInfo } from '@/lib/sheets';
 
 type NavItem = {
   href?: string;
@@ -17,11 +18,46 @@ export default function MobileMenu() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  const { tenantName } = useTenant();
+  const [dashboards, setDashboards] = useState<DashboardInfo[]>([]);
+  const [loading, setLoading] = useState(true);
 
+  // Carregar dashboards dinamicamente
+  useEffect(() => {
+    const loadDashboards = async () => {
+      try {
+        setLoading(true);
+        const availableDashboards = await fetchAvailableDashboards();
+        setDashboards(availableDashboards);
+      } catch (error) {
+        console.error('Erro ao carregar dashboards:', error);
+        setDashboards([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboards();
+  }, []);
+
+  // Função para obter ícone do dashboard
+  const getDashboardIcon = (dashboardId: string) => {
+    const iconMap: Record<string, string> = {
+      sales: "bar_chart",
+      customer: "people",
+      default: "dashboard"
+    };
+    return iconMap[dashboardId] || iconMap.default;
+  };
+
+  // Construir menu dinamicamente
   const nav: NavItem[] = [
     { href: "/", label: "Home", icon: "home" },
-    { href: "/dashboard/sales", label: "Vendas", icon: "bar_chart" },
+    // Dashboards dinâmicos
+    ...dashboards.map(dashboard => ({
+      href: `/dashboard/${dashboard.id}`,
+      label: dashboard.label,
+      icon: getDashboardIcon(dashboard.id)
+    })),
     { label: "Logout", icon: "logout", onClick: () => signOut({ callbackUrl: "/login" }) },
   ];
 
@@ -82,8 +118,9 @@ export default function MobileMenu() {
       <div className={`mobile-menu ${isOpen ? 'open' : ''}`}>
         <div className="mobile-menu-header">
           <div className="mobile-brand">
-            <div className="mobile-logo">▰▰</div>
-            <span className="mobile-brand-text">{tenantName}</span>
+            <div className="mobile-logo">
+              <LogoCompact showText={true} />
+            </div>
           </div>
           <button 
             className="mobile-close-btn"
@@ -98,6 +135,7 @@ export default function MobileMenu() {
           {nav.map((item) => {
             const isActive = item.href ? pathname === item.href : false;
             const isLogout = item.label === 'Logout';
+            const isLoading = loading && item.href && item.href.startsWith('/dashboard/');
 
             return (
               <div key={item.label} className={`mobile-nav-item ${isLogout ? 'logout' : ''}`}>
@@ -106,13 +144,14 @@ export default function MobileMenu() {
                 {item.href ? (
                   <Link
                     href={item.href}
-                    className={`mobile-nav-link ${isActive ? 'active' : ''}`}
+                    className={`mobile-nav-link ${isActive ? 'active' : ''} ${isLoading ? 'loading' : ''}`}
                     onClick={() => handleItemClick(item)}
                   >
                     <div className="mobile-nav-inner">
                       <span className="material-icons mobile-nav-icon">{item.icon}</span>
                       <span className="mobile-nav-label">{item.label}</span>
                       {isActive && <div className="mobile-nav-indicator" />}
+                      {isLoading && <div className="mobile-nav-loading" />}
                     </div>
                   </Link>
                 ) : (
@@ -245,16 +284,9 @@ export default function MobileMenu() {
         }
 
         .mobile-logo {
-          font-size: 20px;
-          color: #e67e22;
-          filter: drop-shadow(0 4px 12px rgba(230, 126, 34, 0.3));
-        }
-
-        .mobile-brand-text {
-          font-size: 18px;
-          font-weight: 700;
-          color: #f2f4f7;
-          letter-spacing: 0.5px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .mobile-close-btn {
@@ -316,6 +348,20 @@ export default function MobileMenu() {
         .mobile-nav-label { font-size: 15px; font-weight: 600; letter-spacing: .2px; }
 
         .mobile-nav-indicator { margin-left: auto; width: 8px; height: 8px; background: #e67e22; border-radius: 50%; box-shadow: 0 0 12px rgba(230,126,34,.6); }
+        
+        .mobile-nav-loading {
+          margin-left: auto;
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255,255,255,.2);
+          border-top-color: #e67e22;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
 
         .mobile-menu-footer {
           padding: 20px;

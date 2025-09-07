@@ -16,7 +16,7 @@
   background: linear-gradient(180deg, rgba(18,26,46,.82), rgba(18,26,46,.72));
   border-right: 1px solid rgba(255,255,255,.03);
   box-shadow: 0 8px 30px rgba(0,0,0,.35);
-  padding: 14px 10px;
+  padding: 16px 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -25,9 +25,12 @@
 .sbBrand {
   display: flex; 
   align-items: center; 
+  justify-content: center;
   gap: 10px;
   color: #e6edf7; 
   font-weight: 600;
+  min-height: 48px;
+  width: 100%;
 }
 
 .logo { 
@@ -110,4 +113,14 @@
 .loading {
   opacity: 0.6;
   pointer-events: none;
+}
+
+/* Esconder sidebar em mobile */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
 }

@@ -1,4 +1,5 @@
 import { signIn } from "@/auth";
+import Logo from "@/components/Logo";
 
 export default function LoginPage() {
 	async function doSignIn() {
@@ -9,7 +10,10 @@ export default function LoginPage() {
 	return (
 		<div className="min-h-svh flex items-center justify-center p-8">
 			<div className="w-full max-w-sm rounded-lg border border-black/10 dark:border-white/10 p-6 space-y-6">
-				<h1 className="text-xl font-semibold text-center">Entrar</h1>
+				<div className="flex flex-col items-center space-y-4">
+					<Logo context="login" variant="auto" priority />
+					<h1 className="text-xl font-semibold text-center">Entrar</h1>
+				</div>
 				<form action={doSignIn} className="space-y-3">
 					<button
 						type="submit"

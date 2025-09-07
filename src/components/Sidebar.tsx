@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
-import { useTenant } from "@/hooks/useTenant";
 import { fetchAvailableDashboards, DashboardInfo } from "@/lib/sheets";
+import LogoCompact from "@/components/LogoCompact";
 import styles from "@/styles/Sidebar.module.css";
 
 type NavItem = {
@@ -26,7 +26,6 @@ export default function Sidebar() {
   const [expanded, setExpanded] = useState(false);
   const [dashboards, setDashboards] = useState<DashboardInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const { tenantName } = useTenant();
 
   useEffect(() => {
     loadDashboards();
@@ -80,8 +79,12 @@ export default function Sidebar() {
     >
       <div className={styles.sbInner}>
         <div className={styles.sbBrand}>
-          <div className={styles.logo}>▰▰</div>
-          {expanded && <div className={styles.brandText}>{tenantName}</div>}
+          <div className={styles.logo}>
+            <LogoCompact 
+              showText={expanded}
+              className="transition-all duration-200"
+            />
+          </div>
         </div>
 
         <nav className={styles.sbNav}>

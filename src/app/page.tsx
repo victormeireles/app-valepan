@@ -5,11 +5,13 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { fetchExternalSheets, type ExternalSheet } from '@/lib/externalSheets';
+import { fetchAvailableDashboards, type DashboardInfo } from '@/lib/sheets';
 
 export default function Home() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
   const [externalSheets, setExternalSheets] = useState<ExternalSheet[]>([]);
+  const [availableDashboards, setAvailableDashboards] = useState<DashboardInfo[]>([]);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -18,17 +20,22 @@ export default function Home() {
   }, [status]);
 
   useEffect(() => {
-    async function loadSheets() {
+    async function loadData() {
       try {
-        const data = await fetchExternalSheets();
-        setExternalSheets(data);
+        const [sheetsData, dashboardsData] = await Promise.all([
+          fetchExternalSheets(),
+          fetchAvailableDashboards()
+        ]);
+        setExternalSheets(sheetsData);
+        setAvailableDashboards(dashboardsData);
       } catch (err) {
-        console.error('Falha ao carregar planilhas externas:', err);
+        console.error('Falha ao carregar dados:', err);
         setExternalSheets([]);
+        setAvailableDashboards([]);
       }
     }
     if (status === 'authenticated') {
-      void loadSheets();
+      void loadData();
     }
   }, [status]);
 
@@ -105,18 +112,52 @@ export default function Home() {
     return null;
   }
 
-  const dashboards = [
-    {
-      id: "sales",
-      title: "Dashboard de Vendas",
-      description: "Análise de vendas por produto e margem",
+  // Função para mapear dashboards dinâmicos
+  const getDashboardConfig = (dashboard: DashboardInfo) => {
+    const configs: Record<string, {
+      title: string;
+      description: string;
+      icon: string;
+      color: string;
+      bgColor: string;
+    }> = {
+      sales: {
+        title: "Dashboard de Vendas",
+        description: "Análise de vendas por produto e margem",
+        icon: "bar_chart",
+        color: "#1E88E5",
+        bgColor: "rgba(30, 136, 229, 0.15)"
+      },
+      customer: {
+        title: "Dashboard de Clientes",
+        description: "Análise de clientes e comportamento de compra",
+        icon: "people",
+        color: "#00d3a7",
+        bgColor: "rgba(0, 211, 167, 0.15)"
+      }
+    };
+
+    const config = configs[dashboard.id] || {
+      title: dashboard.label,
+      description: dashboard.description || "Dashboard operacional",
+      icon: "dashboard",
+      color: "#e67e22",
+      bgColor: "rgba(230, 126, 34, 0.15)"
+    };
+
+    return {
+      id: dashboard.id,
+      title: config.title,
+      description: config.description,
       status: "Disponível",
-      href: "/dashboard/sales",
-      icon: "bar_chart",
-      color: "#1E88E5",
-      bgColor: "rgba(30, 136, 229, 0.15)"
-    },
-  ];
+      href: `/dashboard/${dashboard.id}`,
+      icon: config.icon,
+      color: config.color,
+      bgColor: config.bgColor
+    };
+  };
+
+  const dashboards = availableDashboards.map(getDashboardConfig);
 
 
 
