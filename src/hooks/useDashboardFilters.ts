@@ -1,12 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { FilterOption } from '@/components/DashboardHeader';
 
+// Definir interface para os dados de venda
+interface SaleData {
+  cliente: string;
+  produto: string;
+  tipo_cliente?: string;
+  [key: string]: unknown;
+}
+
 interface UseDashboardFiltersProps {
-  data: any[];
-  getCustomerTypes?: (data: any[]) => string[];
-  getProducts?: (data: any[]) => string[];
-  getCustomerTypesCount?: (data: any[], type: string) => number;
-  getProductsCount?: (data: any[], product: string) => number;
+  data: SaleData[];
+  getCustomerTypes?: (data: SaleData[]) => string[];
+  getProducts?: (data: SaleData[]) => string[];
+  getCustomerTypesCount?: (data: SaleData[], type: string) => number;
+  getProductsCount?: (data: SaleData[], product: string) => number;
   hasCustomerType?: boolean;
 }
 
@@ -95,7 +103,7 @@ export function useDashboardFilters({
       searchValue: productSearch,
       onSearchChange: setProductSearch,
       onSelectionChange: setSelectedProducts,
-      count: getProductsCount || ((product: string) => data.filter(item => item.produto === product).length)
+      count: (product: string) => getProductsCount ? getProductsCount(data, product) : data.filter(item => item.produto === product).length
     },
     ...(hasCustomerType ? [{
       id: 'customerType',
@@ -106,7 +114,7 @@ export function useDashboardFilters({
       searchValue: customerTypeSearch,
       onSearchChange: setCustomerTypeSearch,
       onSelectionChange: setSelectedCustomerTypes,
-      count: getCustomerTypesCount || ((type: string) => data.filter(item => item.tipo_cliente === type).length),
+      count: (type: string) => getCustomerTypesCount ? getCustomerTypesCount(data, type) : data.filter(item => item.tipo_cliente === type).length,
       show: customerTypes.length > 0
     }] : [])
   ];
