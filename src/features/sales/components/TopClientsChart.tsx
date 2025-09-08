@@ -1,6 +1,7 @@
 import type { ChartDataStructure, TopItem } from '@/features/sales/types';
 import type { ProductSaleRow } from '@/lib/sheets';
 import vendasStyles from '@/styles/vendas.module.css';
+import { createPeriodDates } from '@/features/common/utils/date';
 
 type Props = {
   chartData: ChartDataStructure | null;
@@ -61,8 +62,7 @@ export function TopClientsChart({ chartData, filteredData, selectedClients, peri
                     }
 
                     setSelectedClients(newSelectedClients);
-                    const startDate = new Date(periodStart);
-                    const endDate = new Date(periodEnd);
+                    const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
                     applyFilters(rawData, startDate, endDate, newSelectedClients, selectedProducts);
                   } catch (error) {
                     console.error('Erro ao processar filtro de cliente:', error);

@@ -96,5 +96,61 @@ function formatDDMM(d: Date): string {
   return `${dd}/${mm}`;
 }
 
+// Funções centralizadas para criação de datas de período (UTC)
+export function createPeriodStartDate(dateString: string): Date {
+  return new Date(dateString + 'T00:00:00.000Z');
+}
+
+export function createPeriodEndDate(dateString: string): Date {
+  return new Date(dateString + 'T23:59:59.999Z');
+}
+
+// Função para criar um par de datas de período
+export function createPeriodDates(startString: string, endString: string): { startDate: Date; endDate: Date } {
+  return {
+    startDate: createPeriodStartDate(startString),
+    endDate: createPeriodEndDate(endString)
+  };
+}
+
+// Função para formatar período para exibição
+export function formatPeriodDisplay(startString: string, endString: string): string {
+  if (!startString || !endString) return 'Período';
+  const startDate = parseISODateLocal(startString);
+  const endDate = parseISODateLocal(endString);
+  return `${startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
+}
+
+// Converte uma string ISO curta (yyyy-mm-dd) para Date no horário local (sem deslocamento UTC)
+export function parseISODateLocal(dateString: string): Date {
+  const [y, m, d] = dateString.split('-').map(n => parseInt(n, 10));
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
+// Função para fazer parse de data no formato brasileiro (dd/mm/yyyy) em UTC
+export function parseBrazilianDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
+
+  try {
+    // Tentar formato dd/mm/yyyy primeiro
+    const ddmmyyyyMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (ddmmyyyyMatch) {
+      const [, day, month, year] = ddmmyyyyMatch;
+      // Criar data em UTC para evitar problemas de timezone
+      return new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day)));
+    }
+
+    // Tentar parse padrão do JavaScript
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 
 

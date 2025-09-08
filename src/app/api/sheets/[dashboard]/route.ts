@@ -2,6 +2,7 @@ import { google } from 'googleapis';
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/lib/supabase';
+import { parseBrazilianDate } from '@/features/common/utils/date';
 
 interface SheetRow {
   nfValida: boolean;
@@ -84,7 +85,7 @@ function normalizeRowsVendasWithMapping(valuesWithHeader: string[][], mapping: M
       if (!nfValida) continue;
 
       // Data
-      const data = dataIdx !== undefined ? parseDate(String(row[dataIdx])) : null;
+      const data = dataIdx !== undefined ? parseBrazilianDate(String(row[dataIdx])) : null;
       if (!data) continue;
 
       const pedido = pedidoIdx !== undefined ? String(row[pedidoIdx] ?? '').trim() || null : null;
@@ -178,8 +179,8 @@ function normalizeRowsCustomerWithMapping(valuesWithHeader: string[][], mapping:
       const customerType = customerTypeIdx !== undefined ? String(row[customerTypeIdx] ?? '').trim() || null : null;
 
       // Parse de datas
-      const firstPurchase = firstPurchaseIdx !== undefined ? parseDate(String(row[firstPurchaseIdx] ?? '')) : null;
-      const lastPurchase = lastPurchaseIdx !== undefined ? parseDate(String(row[lastPurchaseIdx] ?? '')) : null;
+      const firstPurchase = firstPurchaseIdx !== undefined ? parseBrazilianDate(String(row[firstPurchaseIdx] ?? '')) : null;
+      const lastPurchase = lastPurchaseIdx !== undefined ? parseBrazilianDate(String(row[lastPurchaseIdx] ?? '')) : null;
 
       // Parse de valores numéricos
       const value = valueIdx !== undefined ? Number(parseValueBR(String(row[valueIdx] ?? ''))) : NaN;
@@ -285,7 +286,7 @@ function normalizeRows(values: string[][]): SheetRow[] {
       if (!nfValida) continue;
 
       // Parse da data (formato dd/mm/aaaa)
-      const data = parseDate(dataRaw);
+      const data = parseBrazilianDate(dataRaw);
       if (!data) continue;
 
       // Parse do valor (formato brasileiro: 1.234,56)
@@ -327,29 +328,6 @@ function normalizeRows(values: string[][]): SheetRow[] {
 
 
 
-// Função para fazer parse de data no formato dd/mm/aaaa
-function parseDate(dateStr: string): Date | null {
-  if (!dateStr) return null;
-
-  try {
-    // Tentar formato dd/mm/aaaa primeiro
-    const ddmmyyyyMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (ddmmyyyyMatch) {
-      const [, day, month, year] = ddmmyyyyMatch;
-      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    }
-
-    // Tentar parse padrão do JavaScript
-    const parsed = new Date(dateStr);
-    if (!isNaN(parsed.getTime())) {
-      return parsed;
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 // Função para fazer parse de valor no formato brasileiro (1.234,56)
 function parseValueBR(valueStr: string): number {

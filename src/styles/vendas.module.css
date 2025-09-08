@@ -143,6 +143,26 @@
 	  max-height: 160px !important;
 	}
 	
+	/* Container de gráficos responsivo no mobile */
+	.chart-container {
+	  min-height: 250px;
+	}
+	
+	/* Legendas responsivas no mobile */
+	.topcli-legend {
+	  max-height: 300px;
+	}
+	
+	/* Layout responsivo para topcli no mobile */
+	.topcli {
+	  grid-template-columns: 1fr;
+	  gap: 16px;
+	}
+	
+	.topcli .topcli-legend {
+	  max-height: 300px;
+	}
+	
 	/* Layout responsivo da legenda */
 	.topcli-legend li > div > div:first-child {
 	  flex-direction: column !important;
@@ -360,15 +380,81 @@
 
   .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
   .span-2 { grid-column: span 2; }
+  
+  /* Layout responsivo para gráficos lado a lado */
+  .charts-side-by-side {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 12px;
+    grid-column: span 2;
+  }
+  
+  /* No mobile, empilhar os gráficos verticalmente */
+  @media (max-width: 768px) {
+    .charts-side-by-side {
+      grid-template-columns: 1fr;
+      grid-column: span 1;
+    }
+  }
   .card { 
 	background: var(--panel); border: 1px solid var(--panel-border); border-radius: 16px; padding: 16px; 
 	box-shadow: 0 8px 24px rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.06); backdrop-filter: blur(8px); 
   }
   .card h3 { margin: 4px 0 12px; font-size: 14px; color: var(--accent-2); font-weight: 700; letter-spacing: .2px; }
 
-  .topcli { display: grid; grid-template-columns: 1.1fr .9fr; gap: 12px; align-items: center; }
-  .chart-donut { position: relative; width: 100%; height: 160px; overflow: hidden; margin-bottom: 20px; }
-  .chart-donut canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; max-height: 160px !important; }
+  .topcli { 
+    display: grid; 
+    grid-template-columns: 1.1fr .9fr; 
+    gap: 12px; 
+    align-items: flex-start; 
+    min-height: 300px;
+  }
+  
+  /* Container responsivo para gráficos */
+  .chart-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 300px;
+    height: auto;
+  }
+  
+  .chart-donut { 
+    position: relative; 
+    width: 100%; 
+    height: 160px; 
+    overflow: hidden; 
+    margin-bottom: 20px; 
+    flex-shrink: 0;
+  }
+  .chart-donut canvas { 
+    position: absolute; 
+    inset: 0; 
+    width: 100% !important; 
+    height: 100% !important; 
+    max-height: 160px !important; 
+  }
+  
+  /* Estado vazio dos gráficos */
+  .chart-empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+  }
+  
+  .chart-empty-state p {
+    margin: 4px 0;
+  }
+  
+  .chart-empty-state p:last-child {
+    font-size: 12px;
+    margin-top: 8px;
+  }
   
   /* Força altura fixa para todos os canvas */
   #chart-semanas { height: 300px !important; max-height: 300px !important; }
@@ -376,9 +462,60 @@
   #chart-produtos { height: 160px !important; max-height: 160px !important; }
   #chart-tipos-cliente { height: 160px !important; max-height: 160px !important; }
   #chart-eng { height: 280px !important; max-height: 280px !important; }
-  .topcli-legend { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-  .topcli-legend li { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid rgba(255,255,255,.06); border-radius: 8px; background: rgba(255,255,255,.04); cursor: pointer; transition: all 0.15s ease; }
-  .topcli-legend li:hover { background: rgba(255,255,255,.08); transform: scale(1.02); }
+  .topcli-legend { 
+    list-style: none; 
+    padding: 0; 
+    margin: 0; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+    width: 100%;
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  
+  /* Legendas específicas para layout lado a lado (topcli) */
+  .topcli .topcli-legend {
+    max-height: 410px;
+  }
+  
+  .topcli-legend li { 
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+    padding: 12px 16px; 
+    border: 1px solid rgba(255,255,255,.06); 
+    border-radius: 8px; 
+    background: rgba(255,255,255,.04); 
+    cursor: pointer; 
+    transition: all 0.15s ease; 
+    flex-shrink: 0;
+  }
+  
+  .topcli-legend li:hover { 
+    background: rgba(255,255,255,.08); 
+    transform: scale(1.02); 
+  }
+  
+  /* Scrollbar personalizada para as legendas */
+  .topcli-legend::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .topcli-legend::-webkit-scrollbar-track {
+    background: rgba(255,255,255,.05);
+    border-radius: 3px;
+  }
+  
+  .topcli-legend::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,.2);
+    border-radius: 3px;
+  }
+  
+  .topcli-legend::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,.3);
+  }
   .topcli-legend .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
   .topcli-legend .margem-bruta { background: rgba(230,126,34,.2); color: #e67e22; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
   .topcli-legend .preco-medio { background: rgba(30,136,229,.2); color: #1E88E5; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
@@ -490,7 +627,7 @@
 	display: grid; place-items: center; z-index: 9999; 
   }
   .modal-card { 
-	width: min(860px, 92vw); background: var(--panel); border: 1px solid var(--panel-border); 
+	width: min(1200px, 95vw); background: var(--panel); border: 1px solid var(--panel-border); 
 	border-radius: 16px; box-shadow: 0 16px 60px rgba(0,0,0,.6); 
 	max-height: 90vh;
 	overflow: hidden;
@@ -503,15 +640,17 @@
     width: 100%; 
     border-collapse: collapse; 
     table-layout: fixed;
+    min-width: 1000px;
   }
   
   .modal-table th, .modal-table td { 
     text-align: left; 
-    padding: 10px 12px; 
+    padding: 12px 16px; 
     border-bottom: 1px solid rgba(255,255,255,.06); 
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    vertical-align: middle;
   }
 
   .modal-table th {
@@ -523,88 +662,113 @@
     top: 0;
     z-index: 1;
     padding: 12px 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left;
+  }
+
+  .modal-table th .header-content {
     display: flex;
     align-items: center;
     gap: 6px;
+    width: 100%;
   }
 
-  .modal-table th > span {
+  .modal-table th .header-text {
     flex: 1;
+    min-width: 0;
+  }
+
+  .modal-table th .sort-icon {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Alinhamento específico para colunas numéricas */
+  .modal-table th:nth-child(n+2), 
+  .modal-table td:nth-child(n+2) {
+    text-align: right;
+  }
+
+  .modal-table th:nth-child(1), 
+  .modal-table td:nth-child(1) {
+    text-align: left;
   }
 
   /* Larguras específicas para cada coluna */
   .modal-table th:nth-child(1), .modal-table td:nth-child(1) { 
-    width: 200px; /* Produto/Cliente - mais largo */
-    min-width: 180px;
+    width: 250px; /* Produto/Cliente - mais largo */
+    min-width: 200px;
   }
   
   .modal-table th:nth-child(2), .modal-table td:nth-child(2) { 
-    width: 100px; /* Unidades */
-    min-width: 90px;
+    width: 120px; /* Unidades */
+    min-width: 100px;
   }
   
   .modal-table th:nth-child(3), .modal-table td:nth-child(3) { 
-    width: 100px; /* Pacotes */
-    min-width: 90px;
+    width: 120px; /* Pacotes */
+    min-width: 100px;
   }
   
   .modal-table th:nth-child(4), .modal-table td:nth-child(4) { 
-    width: 100px; /* Caixas */
-    min-width: 90px;
+    width: 120px; /* Caixas */
+    min-width: 100px;
   }
   
   .modal-table th:nth-child(5), .modal-table td:nth-child(5) { 
-    width: 130px; /* Valor */
-    min-width: 120px;
+    width: 150px; /* Valor */
+    min-width: 130px;
   }
   
   .modal-table th:nth-child(6), .modal-table td:nth-child(6) { 
-    width: 120px; /* Margem Bruta */
-    min-width: 110px;
+    width: 140px; /* Margem Bruta */
+    min-width: 120px;
   }
   
   .modal-table th:nth-child(7), .modal-table td:nth-child(7) { 
-    width: 100px; /* PMP/PMV */
-    min-width: 90px;
+    width: 120px; /* PMP/PMV */
+    min-width: 100px;
   }
   
   .modal-table th:nth-child(8), .modal-table td:nth-child(8) { 
-    width: 100px; /* CMP/CMV */
-    min-width: 90px;
+    width: 120px; /* CMP/CMV */
+    min-width: 100px;
   }
 
   /* Container da tabela no modal */
   .modal .table-scroll {
-    min-width: 900px; /* Largura mínima para acomodar todas as colunas */
+    min-width: 1100px; /* Largura mínima para acomodar todas as colunas */
+    max-height: 500px; /* Altura máxima para evitar modal muito alto */
     overflow-x: auto;
-  }
-
-  /* Garantir que o modal tenha largura suficiente */
-  .modal {
-    min-width: 950px;
-    max-width: 95vw;
+    overflow-y: auto;
   }
 
   /* Responsividade para telas menores */
-  @media (max-width: 1024px) {
-    .modal {
-      min-width: 90vw;
-      max-width: 95vw;
-    }
+  @media (max-width: 1200px) {
+    
     
     .modal .table-scroll {
-      min-width: 800px;
+      min-width: 1000px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    
+    .modal .table-scroll {
+      min-width: 900px;
     }
   }
 
   @media (max-width: 768px) {
-    .modal {
-      min-width: 95vw;
-      max-width: 98vw;
-    }
-    
+   
     .modal .table-scroll {
-      min-width: 700px;
+      min-width: 800px;
     }
   }
 
@@ -645,11 +809,6 @@
 	.topcli { grid-template-columns: 1fr; } 
 	.span-2 { grid-column: span 1; }
 	
-	/* Layout responsivo para gráficos lado a lado */
-	.charts > div[style*="gridTemplateColumns: 1fr 2fr"] {
-	  grid-template-columns: 1fr !important;
-	  gap: 12px !important;
-	}
   }
   @media (max-width: 640px) { 
 	.chart-donut { height: 160px; } 

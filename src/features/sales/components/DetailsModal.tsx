@@ -54,7 +54,7 @@ export function DetailsModal({ show, title, rows, meta, formatK, closeAllModals 
               <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={closeAllModals}>Fechar</button>
             </div>
           </div>
-          <div className={vendasStyles['table-scroll']} style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          <div className={vendasStyles['table-scroll']}>
             <table className={vendasStyles['modal-table']}>
               <thead>
                 <tr>
@@ -62,23 +62,29 @@ export function DetailsModal({ show, title, rows, meta, formatK, closeAllModals 
                     style={{ cursor: 'pointer', userSelect: 'none' }}
                     onClick={() => handleSort((rows && rows[0] && 'produto' in rows[0]) ? 'produto' : 'cliente')}
                   >
-                    <span>{(rows && rows[0] && 'produto' in rows[0]) ? 'Produto' : 'Cliente'}</span>
-                    <span>{getSortIcon((rows && rows[0] && 'produto' in rows[0]) ? 'produto' : 'cliente')}</span>
+                    <div className={vendasStyles['header-content']}>
+                      <span className={vendasStyles['header-text']}>{(rows && rows[0] && 'produto' in rows[0]) ? 'Produto' : 'Cliente'}</span>
+                      <span className={vendasStyles['sort-icon']}>{getSortIcon((rows && rows[0] && 'produto' in rows[0]) ? 'produto' : 'cliente')}</span>
+                    </div>
                   </th>
                   <th 
                     style={{ cursor: 'pointer', userSelect: 'none' }}
                     onClick={() => handleSort('unidades')}
                   >
-                    <span>Unidades</span>
-                    <span>{getSortIcon('unidades')}</span>
+                    <div className={vendasStyles['header-content']}>
+                      <span className={vendasStyles['header-text']}>Unidades</span>
+                      <span className={vendasStyles['sort-icon']}>{getSortIcon('unidades')}</span>
+                    </div>
                   </th>
                   {meta?.hasPackages && (
                     <th 
                       style={{ cursor: 'pointer', userSelect: 'none' }}
                       onClick={() => handleSort('pacotes')}
                     >
-                      <span>Pacotes</span>
-                      <span>{getSortIcon('pacotes')}</span>
+                      <div className={vendasStyles['header-content']}>
+                        <span className={vendasStyles['header-text']}>Pacotes</span>
+                        <span className={vendasStyles['sort-icon']}>{getSortIcon('pacotes')}</span>
+                      </div>
                     </th>
                   )}
                   {meta?.hasBoxes && (
@@ -86,37 +92,47 @@ export function DetailsModal({ show, title, rows, meta, formatK, closeAllModals 
                       style={{ cursor: 'pointer', userSelect: 'none' }}
                       onClick={() => handleSort('caixas')}
                     >
-                      <span>Caixas</span>
-                      <span>{getSortIcon('caixas')}</span>
+                      <div className={vendasStyles['header-content']}>
+                        <span className={vendasStyles['header-text']}>Caixas</span>
+                        <span className={vendasStyles['sort-icon']}>{getSortIcon('caixas')}</span>
+                      </div>
                     </th>
                   )}
                   <th 
                     style={{ cursor: 'pointer', userSelect: 'none' }}
                     onClick={() => handleSort('valor')}
                   >
-                    <span>Valor</span>
-                    <span>{getSortIcon('valor')}</span>
+                    <div className={vendasStyles['header-content']}>
+                      <span className={vendasStyles['header-text']}>Valor</span>
+                      <span className={vendasStyles['sort-icon']}>{getSortIcon('valor')}</span>
+                    </div>
                   </th>
                   <th 
                     style={{ cursor: 'pointer', userSelect: 'none' }}
                     onClick={() => handleSort('mb')}
                   >
-                    <span>Margem Bruta</span>
-                    <span>{getSortIcon('mb')}</span>
+                    <div className={vendasStyles['header-content']}>
+                      <span className={vendasStyles['header-text']}>Margem Bruta</span>
+                      <span className={vendasStyles['sort-icon']}>{getSortIcon('mb')}</span>
+                    </div>
                   </th>
                   <th 
                     style={{ cursor: 'pointer', userSelect: 'none' }}
                     onClick={() => handleSort(meta?.hasPackages ? 'pmp' : 'pmv')}
                   >
-                    <span>{meta?.hasPackages ? 'PMP' : 'PMV'}</span>
-                    <span>{getSortIcon(meta?.hasPackages ? 'pmp' : 'pmv')}</span>
+                    <div className={vendasStyles['header-content']}>
+                      <span className={vendasStyles['header-text']}>{meta?.hasPackages ? 'PMP' : 'PMV'}</span>
+                      <span className={vendasStyles['sort-icon']}>{getSortIcon(meta?.hasPackages ? 'pmp' : 'pmv')}</span>
+                    </div>
                   </th>
                   <th 
                     style={{ cursor: 'pointer', userSelect: 'none' }}
                     onClick={() => handleSort(meta?.hasPackages ? 'cmp' : 'cmv')}
                   >
-                    <span>{meta?.hasPackages ? 'CMP' : 'CMV'}</span>
-                    <span>{getSortIcon(meta?.hasPackages ? 'cmp' : 'cmv')}</span>
+                    <div className={vendasStyles['header-content']}>
+                      <span className={vendasStyles['header-text']}>{meta?.hasPackages ? 'CMP' : 'CMV'}</span>
+                      <span className={vendasStyles['sort-icon']}>{getSortIcon(meta?.hasPackages ? 'cmp' : 'cmv')}</span>
+                    </div>
                   </th>
                 </tr>
               </thead>

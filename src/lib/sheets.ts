@@ -1,3 +1,5 @@
+import { parseBrazilianDate } from '@/features/common/utils/date';
+
 // Interface para os dados da planilha
 export interface SheetRow {
   nfValida: boolean;
@@ -183,7 +185,7 @@ function normalizeRows(values: string[][]): SheetRow[] {
       if (!nfValida) continue;
 
       // Parse da data (formato dd/mm/aaaa)
-      const data = parseDate(dataRaw);
+      const data = parseBrazilianDate(dataRaw);
       if (!data) continue;
 
       // Parse do valor (formato brasileiro: 1.234,56)
@@ -215,29 +217,6 @@ function normalizeRows(values: string[][]): SheetRow[] {
   return normalizedRows;
 }
 
-// Função para fazer parse de data no formato dd/mm/aaaa
-function parseDate(dateStr: string): Date | null {
-  if (!dateStr) return null;
-
-  try {
-    // Tentar formato dd/mm/aaaa primeiro
-    const ddmmyyyyMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (ddmmyyyyMatch) {
-      const [, day, month, year] = ddmmyyyyMatch;
-      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    }
-
-    // Tentar parse padrão do JavaScript
-    const parsed = new Date(dateStr);
-    if (!isNaN(parsed.getTime())) {
-      return parsed;
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 // Função para fazer parse de valor no formato brasileiro (1.234,56)
 function parseValueBR(valueStr: string): number {

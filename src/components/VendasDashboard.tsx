@@ -12,6 +12,7 @@ import { useTenant } from '@/hooks/useTenant';
 import { useChartJS } from '@/features/common/hooks/useChartJS';
 import { useSalesData } from '@/features/sales/hooks/useSalesData';
 import { useSalesFilters } from '@/features/sales/hooks/useSalesFilters';
+import { createPeriodDates, formatPeriodDisplay } from '@/features/common/utils/date';
 import type { KpisData, SemanaData, TopItem, RankingItem, ChartDataStructure, ModalData } from '@/features/sales/types';
 import { SalesKPISection } from '@/features/sales/components/SalesKPISection';
 import { WeekSalesChart } from '@/features/sales/components/WeekSalesChart';
@@ -914,8 +915,7 @@ export default function VendasDashboard() {
             setSelectedClients(newSelectedClients);
             
             // Reaplicar filtros
-            const startDate = new Date(periodStart);
-            const endDate = new Date(periodEnd);
+            const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
             applyFilters(rawData, startDate, endDate, newSelectedClients, selectedProducts);
             
           } catch (error) {
@@ -1054,8 +1054,7 @@ export default function VendasDashboard() {
             setSelectedProducts(newSelectedProducts);
             
             // Reaplicar filtros
-            const startDate = new Date(periodStart);
-            const endDate = new Date(periodEnd);
+            const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
             applyFilters(rawData, startDate, endDate, selectedClients, newSelectedProducts);
             
           } catch (error) {
@@ -1203,8 +1202,7 @@ export default function VendasDashboard() {
               setSelectedCustomerTypes(newSelectedCustomerTypes);
               
               // Reaplicar filtros
-              const startDate = new Date(periodStart);
-              const endDate = new Date(periodEnd);
+              const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
               applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts, newSelectedCustomerTypes);
               
             } catch (error) {
@@ -1396,8 +1394,9 @@ export default function VendasDashboard() {
   };
 
   const getVariationTitle = () => {
-    const start = new Date(periodStart);
-    const end = new Date(periodEnd);
+    // Exibir datas de início/fim no horário local para evitar recuos por UTC
+    const start = new Date(periodStart.split('T')[0] || periodStart);
+    const end = new Date(periodEnd.split('T')[0] || periodEnd);
     const startStr = start.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     const endStr = end.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     
@@ -1473,9 +1472,7 @@ export default function VendasDashboard() {
   // Handlers dos filtros
   const handlePeriodApply = () => {
     if (periodStart && periodEnd) {
-      const startDate = new Date(periodStart + 'T00:00:00');
-      const endDate = new Date(periodEnd + 'T00:00:00');
-      
+      const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
       applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts, selectedCustomerTypes);
       closeAllModals();
     }
@@ -1515,25 +1512,19 @@ export default function VendasDashboard() {
   };
 
   const handleClientApply = () => {
-    const startDate = new Date(periodStart + 'T00:00:00');
-    const endDate = new Date(periodEnd + 'T00:00:00');
-    
+    const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
     applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts, selectedCustomerTypes);
     closeAllModals();
   };
 
   const handleProductApply = () => {
-    const startDate = new Date(periodStart + 'T00:00:00');
-    const endDate = new Date(periodEnd + 'T00:00:00');
-    
+    const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
     applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts, selectedCustomerTypes);
     closeAllModals();
   };
 
   const handleCustomerTypeApply = () => {
-    const startDate = new Date(periodStart + 'T00:00:00');
-    const endDate = new Date(periodEnd + 'T00:00:00');
-    
+    const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
     applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts, selectedCustomerTypes);
     closeAllModals();
   };
@@ -1548,8 +1539,7 @@ export default function VendasDashboard() {
     }
     
     // Aplicar filtros imediatamente
-    const startDate = new Date(periodStart + 'T00:00:00');
-    const endDate = new Date(periodEnd + 'T00:00:00');
+    const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
     applyFilters(rawData, startDate, endDate, selectedClients.includes(cliente) ? [] : [cliente], selectedProducts, selectedCustomerTypes);
   };
 
@@ -1671,7 +1661,7 @@ export default function VendasDashboard() {
             onClick={() => showPeriodPanel ? closeAllModals() : openModal('period')}
           >
             <span className={vendasStyles['dot-indicator']}></span>
-            <span>{periodStart && periodEnd ? `${new Date(periodStart + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})} a ${new Date(periodEnd + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}` : 'Período'}</span>
+            <span>{formatPeriodDisplay(periodStart, periodEnd)}</span>
             <span className={vendasStyles.caret}>▾</span>
           </button>
           
@@ -1903,7 +1893,7 @@ export default function VendasDashboard() {
             onClick={() => showPeriodPanel ? closeAllModals() : openModal('period')}
           >
             <span className={vendasStyles['dot-indicator']}></span>
-            <span>{periodStart && periodEnd ? `${new Date(periodStart + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})} a ${new Date(periodEnd + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}` : 'Período'}</span>
+            <span>{formatPeriodDisplay(periodStart, periodEnd)}</span>
             <span className={vendasStyles.caret}>▾</span>
           </button>
           
@@ -2145,8 +2135,8 @@ export default function VendasDashboard() {
         {/* Gráfico de Top Produtos e Tipos de Cliente */}
         <section className={vendasStyles.charts}>
           {meta?.hasCustomerType ? (
-            // Layout com dois gráficos na mesma linha
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', gridColumn: 'span 2' }}>
+            // Layout com dois gráficos na mesma linha - responsivo
+            <div className={vendasStyles['charts-side-by-side']}>
               {/* Gráfico de Tipos de Cliente - 1/3 */}
               <CustomerTypesChart 
                 chartData={chartData}
@@ -2264,8 +2254,7 @@ export default function VendasDashboard() {
                             setSelectedProducts(newSelectedProducts);
                             
                             // Reaplicar filtros
-                            const startDate = new Date(periodStart);
-                            const endDate = new Date(periodEnd);
+                            const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
                             applyFilters(rawData, startDate, endDate, selectedClients, newSelectedProducts);
                             
                           } catch (error) {

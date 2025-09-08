@@ -3,6 +3,7 @@ import { ProductSaleRow } from '@/lib/sheets';
 import type { ChartDataStructure, KpisData } from '@/features/sales/types';
 import { computeSalesKPIs } from '@/features/sales/hooks/useSalesKPIs';
 import { computeSalesChartData } from '@/features/sales/hooks/useSalesChartData';
+import { createPeriodStartDate, createPeriodEndDate } from '@/features/common/utils/date';
 
 export type UseSalesFiltersArgs = {
   rawData: ProductSaleRow[];
@@ -37,14 +38,15 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
   const [kpis, setKpis] = useState<KpisData | null>(null);
   const [chartData, setChartData] = useState<ChartDataStructure | null>(null);
 
-  const startDate = useMemo(() => (periodStart ? new Date(periodStart + 'T00:00:00') : null), [periodStart]);
-  const endDate = useMemo(() => (periodEnd ? new Date(periodEnd + 'T00:00:00') : null), [periodEnd]);
+  const startDate = useMemo(() => (periodStart ? createPeriodStartDate(periodStart) : null), [periodStart]);
+  const endDate = useMemo(() => (periodEnd ? createPeriodEndDate(periodEnd) : null), [periodEnd]);
 
   const apply = (clients: string[], products: string[], customerTypes: string[] = []) => {
     if (!startDate || !endDate) return;
 
-    const s = new Date(startDate); s.setHours(0, 0, 0, 0);
-    const e = new Date(endDate); e.setHours(23, 59, 59, 999);
+    // Usar as datas UTC diretamente para evitar problemas de timezone
+    const s = new Date(startDate);
+    const e = new Date(endDate);
 
     let f = rawData.filter(row => row.data >= s && row.data <= e);
     if (clients.length > 0) f = f.filter(r => clients.includes(r.cliente));

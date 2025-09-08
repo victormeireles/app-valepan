@@ -1,6 +1,7 @@
 import type { ChartDataStructure, TopItem } from '@/features/sales/types';
 import type { ProductSaleRow } from '@/lib/sheets';
 import vendasStyles from '@/styles/vendas.module.css';
+import { createPeriodDates } from '@/features/common/utils/date';
 
 type Props = {
   chartData: ChartDataStructure | null;
@@ -21,7 +22,7 @@ export function TopProductsChart({ chartData, filteredData, selectedProducts, se
     <div className={vendasStyles.card}>
       <h3>Top produtos por valor</h3>
       <p><small>Clique no gráfico para filtrar por produto</small></p>
-      <div className={vendasStyles.topcli}>
+      <div className={vendasStyles['topcli']}>
         <div className={vendasStyles['chart-donut']}>
           <canvas id="chart-produtos"></canvas>
         </div>
@@ -71,8 +72,7 @@ export function TopProductsChart({ chartData, filteredData, selectedProducts, se
                       newSelectedProducts = isSelected ? [] : [produto.produto ?? ''];
                     }
                     setSelectedProducts(newSelectedProducts);
-                    const startDate = new Date(periodStart);
-                    const endDate = new Date(periodEnd);
+                    const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
                     applyFilters(rawData, startDate, endDate, selectedClients, newSelectedProducts);
                   } catch (error) {
                     console.error('Erro ao processar filtro de produto:', error);

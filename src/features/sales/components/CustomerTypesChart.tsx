@@ -1,6 +1,7 @@
 import type { ChartDataStructure, TopItem } from '@/features/sales/types';
 import type { ProductSaleRow } from '@/lib/sheets';
 import vendasStyles from '@/styles/vendas.module.css';
+import { createPeriodDates } from '@/features/common/utils/date';
 
 type Props = {
   chartData: ChartDataStructure | null;
@@ -21,11 +22,11 @@ export function CustomerTypesChart({ chartData, filteredData, selectedCustomerTy
       <h3>Distribuição por tipo de cliente</h3>
       <p><small>Clique no gráfico para filtrar por tipo de cliente</small></p>
       {chartData?.topTiposCliente && chartData.topTiposCliente.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '300px' }}>
-          <div className={vendasStyles['chart-donut']} style={{ marginBottom: '20px' }}>
+        <div className={vendasStyles['chart-container']}>
+          <div className={vendasStyles['chart-donut']}>
             <canvas id="chart-tipos-cliente"></canvas>
           </div>
-          <ul className={vendasStyles['topcli-legend']} style={{ width: '100%' }}>
+          <ul className={vendasStyles['topcli-legend']}>
             {chartData.topTiposCliente.map((tipoCliente: TopItem) => {
               const totalPeriodo = chartData.topTiposCliente.reduce((sum: number, t: TopItem) => sum + t.valor, 0) || 1;
               const pct = ((tipoCliente.valor ?? 0) / totalPeriodo * 100) || 0;
@@ -98,8 +99,7 @@ export function CustomerTypesChart({ chartData, filteredData, selectedCustomerTy
                       setSelectedCustomerTypes(newSelectedCustomerTypes);
                       
                       // Reaplicar filtros
-                      const startDate = new Date(periodStart);
-                      const endDate = new Date(periodEnd);
+                      const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
                       applyFilters(rawData, startDate, endDate, selectedClients, selectedProducts, newSelectedCustomerTypes);
                       
                     } catch (error) {
@@ -124,10 +124,10 @@ export function CustomerTypesChart({ chartData, filteredData, selectedCustomerTy
           </ul>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '300px', color: 'var(--muted)', fontSize: '14px', textAlign: 'center' }}>
+        <div className={vendasStyles['chart-empty-state']}>
           <div>
             <p>Nenhum dado de tipo de cliente encontrado</p>
-            <p style={{ fontSize: '12px', marginTop: '8px' }}>Verifique se a coluna está mapeada corretamente</p>
+            <p>Verifique se a coluna está mapeada corretamente</p>
           </div>
         </div>
       )}

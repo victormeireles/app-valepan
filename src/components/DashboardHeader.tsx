@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import vendasStyles from '@/styles/vendas.module.css';
+import { formatPeriodDisplay } from '@/features/common/utils/date';
 
 export interface FilterOption {
   id: string;
@@ -51,12 +52,6 @@ export default function DashboardHeader({ title, tenantName, subtitle, filters }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const formatPeriodDisplay = (start: string, end: string) => {
-    if (!start || !end) return 'Período';
-    const startDate = new Date(start + 'T00:00:00');
-    const endDate = new Date(end + 'T00:00:00');
-    return `${startDate.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})} a ${endDate.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}`;
-  };
 
   const formatSelectionDisplay = (values: string[], label: string) => {
     if (values.length === 0) return label;

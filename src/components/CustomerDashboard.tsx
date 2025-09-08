@@ -8,6 +8,7 @@ import { useTenant } from '@/hooks/useTenant';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import DashboardHeader from '@/components/DashboardHeader';
 import vendasStyles from '@/styles/vendas.module.css';
+import { createPeriodDates } from '@/features/common/utils/date';
 
 export default function CustomerDashboard() {
   const { data: session, status } = useSession();
@@ -46,11 +47,10 @@ export default function CustomerDashboard() {
 
     // Filtro por período (primeira compra)
     if (periodStart && periodEnd) {
+      const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
       filtered = filtered.filter(customer => {
         if (!customer.first_purchase) return false;
         const firstPurchase = new Date(customer.first_purchase);
-        const startDate = new Date(periodStart);
-        const endDate = new Date(periodEnd);
         return firstPurchase >= startDate && firstPurchase <= endDate;
       });
     }
