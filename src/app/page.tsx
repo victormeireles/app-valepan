@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { fetchExternalSheets, type ExternalSheet } from '@/lib/externalSheets';
 import { fetchAvailableDashboards, type DashboardInfo } from '@/lib/sheets';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -44,68 +45,7 @@ export default function Home() {
   }
 
   if (status === 'loading' || loading) {
-    return (
-      <>
-        <style jsx global>{`
-          body { 
-            overflow: hidden !important; 
-            background: #090c12 !important;
-          }
-          
-          .loading { 
-            position: fixed !important; 
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            display: flex !important; 
-            flex-direction: column !important;
-            align-items: center !important;
-            justify-content: center !important;
-            background: linear-gradient(180deg, #090c12 0%, #0f1420 60%, #090c12 100%) !important; 
-            backdrop-filter: blur(12px) !important; 
-            z-index: 9999 !important;
-            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif !important;
-          }
-          .spinner { 
-            width: 54px !important; 
-            height: 54px !important; 
-            border-radius: 50% !important; 
-            border: 4px solid rgba(255,255,255,.15) !important; 
-            border-top-color: #e67e22 !important; 
-            animation: spin 1s linear infinite !important; 
-            margin-bottom: 12px !important;
-          }
-          .loading-text { 
-            margin-top: 12px !important; 
-            color: #c9cbd6 !important; 
-            font-weight: 600 !important; 
-            font-size: 14px !important;
-            text-align: center !important;
-          }
-          @keyframes spin { 
-            to { transform: rotate(360deg) } 
-          }
-          .bg-animations { position: fixed; inset: 0; overflow: hidden; z-index: -1; }
-          .orb { position: absolute; width: 520px; height: 520px; filter: blur(82px); opacity: .4; border-radius: 50%; animation: float 20s ease-in-out infinite; }
-          .orb-a { background: radial-gradient(circle at 30% 30%, #1E88E5, transparent 60%); top: -120px; left: -80px; }
-          .orb-b { background: radial-gradient(circle at 70% 70%, #00d3a7, transparent 60%); bottom: -140px; right: -120px; animation-delay: -6s; }
-          @keyframes float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-20px) } }
-          .grid-overlay { position: absolute; inset: 0; background: linear-gradient(transparent 95%, rgba(255,255,255,.05) 95%), linear-gradient(90deg, transparent 95%, rgba(255,255,255,.05) 95%); background-size: 28px 28px; mix-blend-mode: overlay; opacity: .25; }
-        `}</style>
-        <div className="loading">
-          <div className="bg-animations">
-            <div className="orb orb-a"></div>
-            <div className="orb orb-b"></div>
-            <div className="grid-overlay"></div>
-          </div>
-          <div className="spinner"></div>
-          <div className="loading-text">Carregando dashboard…</div>
-        </div>
-      </>
-    );
+    return <LoadingOverlay show={true} message="Carregando dashboard..." />;
   }
   
   if (!session) {

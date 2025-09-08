@@ -1,3 +1,5 @@
+import loadingStyles from '@/styles/loading.module.css';
+
 interface LoadingOverlayProps {
   show: boolean;
   message?: string;
@@ -7,11 +9,14 @@ export default function LoadingOverlay({ show, message = "Processando dados..." 
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-8 flex flex-col items-center space-y-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        <p className="text-gray-700 font-medium">{message}</p>
+    <div className={loadingStyles.loading}>
+      <div className={loadingStyles['bg-animations']}>
+        <div className={`${loadingStyles.orb} ${loadingStyles['orb-a']}`}></div>
+        <div className={`${loadingStyles.orb} ${loadingStyles['orb-b']}`}></div>
+        <div className={loadingStyles['grid-overlay']}></div>
       </div>
+      <div className={loadingStyles.spinner}></div>
+      <div className={loadingStyles['loading-text']}>{message}</div>
     </div>
   );
 }
