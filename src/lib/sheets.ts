@@ -112,19 +112,39 @@ export async function fetchSheetData(dashboard: string = 'sales') {
       throw new Error(data.error);
     }
     
-    // Converter strings de data de volta para objetos Date
+    // Converter strings de data de volta para objetos Date de forma independente de timezone
     return data.map((row: SheetRow | ProductSaleRow | CustomerRow) => {
       const result = { ...row };
       
-      // Converter campos de data comuns
+      // Converter campos de data comuns usando conversão independente de timezone
       if ('data' in result && result.data) {
-        (result as { data: Date }).data = new Date(result.data);
+        const dateStr = String(result.data);
+        // Se é uma string ISO (YYYY-MM-DD), criar data local
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month, day] = dateStr.split('-').map(n => parseInt(n, 10));
+          (result as { data: Date }).data = new Date(year, month - 1, day);
+        } else {
+          // Para outros formatos, usar conversão padrão
+          (result as { data: Date }).data = new Date(result.data);
+        }
       }
       if ('first_purchase' in result && result.first_purchase) {
-        (result as { first_purchase: Date }).first_purchase = new Date(result.first_purchase);
+        const dateStr = String(result.first_purchase);
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month, day] = dateStr.split('-').map(n => parseInt(n, 10));
+          (result as { first_purchase: Date }).first_purchase = new Date(year, month - 1, day);
+        } else {
+          (result as { first_purchase: Date }).first_purchase = new Date(result.first_purchase);
+        }
       }
       if ('last_purchase' in result && result.last_purchase) {
-        (result as { last_purchase: Date }).last_purchase = new Date(result.last_purchase);
+        const dateStr = String(result.last_purchase);
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month, day] = dateStr.split('-').map(n => parseInt(n, 10));
+          (result as { last_purchase: Date }).last_purchase = new Date(year, month - 1, day);
+        } else {
+          (result as { last_purchase: Date }).last_purchase = new Date(result.last_purchase);
+        }
       }
       
       return result;

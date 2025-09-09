@@ -201,5 +201,48 @@ export function isDateInRange(date: Date, startDate: Date, endDate: Date): boole
   return checkDate >= rangeStart && checkDate <= rangeEnd;
 }
 
+// Funções completamente independentes de timezone - trabalham apenas com strings ISO
+export function dateToISOString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function parseDateToISOString(dateInput: Date | string): string {
+  if (typeof dateInput === 'string') {
+    // Se já é uma string ISO, retorna como está
+    if (dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return dateInput;
+    }
+    // Se é uma string de data, converte para Date primeiro
+    const date = new Date(dateInput);
+    return dateToISOString(date);
+  }
+  
+  // Se é um objeto Date, converte para ISO string
+  return dateToISOString(dateInput);
+}
+
+export function isDateInRangeISO(dateInput: Date | string, startDateInput: Date | string, endDateInput: Date | string): boolean {
+  const dateStr = parseDateToISOString(dateInput);
+  const startStr = parseDateToISOString(startDateInput);
+  const endStr = parseDateToISOString(endDateInput);
+  
+  // Comparação de strings ISO (YYYY-MM-DD) é lexicograficamente correta
+  return dateStr >= startStr && dateStr <= endStr;
+}
+
+// Função para criar datas de período que retorna strings ISO
+export function createPeriodStartDateISO(dateString: string): string {
+  // dateString já deve estar no formato YYYY-MM-DD
+  return dateString;
+}
+
+export function createPeriodEndDateISO(dateString: string): string {
+  // dateString já deve estar no formato YYYY-MM-DD
+  return dateString;
+}
+
 
 

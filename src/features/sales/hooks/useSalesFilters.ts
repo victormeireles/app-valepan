@@ -3,7 +3,7 @@ import { ProductSaleRow } from '@/lib/sheets';
 import type { ChartDataStructure, KpisData } from '@/features/sales/types';
 import { computeSalesKPIs } from '@/features/sales/hooks/useSalesKPIs';
 import { computeSalesChartData } from '@/features/sales/hooks/useSalesChartData';
-import { createPeriodStartDate, createPeriodEndDate, previousPeriodFromRange, isDateInRange } from '@/features/common/utils/date';
+import { createPeriodStartDate, createPeriodEndDate, previousPeriodFromRange, isDateInRange, isDateInRangeISO } from '@/features/common/utils/date';
 
 export type UseSalesFiltersArgs = {
   rawData: ProductSaleRow[];
@@ -44,8 +44,8 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
   const apply = (clients: string[], products: string[], customerTypes: string[] = []) => {
     if (!startDate || !endDate) return;
 
-    // Usar comparação apenas de datas (ignorando hora) para evitar problemas de timezone
-    let f = rawData.filter(row => isDateInRange(row.data, startDate, endDate));
+    // Usar comparação independente de timezone com strings ISO
+    let f = rawData.filter(row => isDateInRangeISO(row.data, startDate, endDate));
     if (clients.length > 0) f = f.filter(r => clients.includes(r.cliente));
     if (products.length > 0) f = f.filter(r => r.produto && products.includes(r.produto));
     if (customerTypes.length > 0) f = f.filter(r => r.tipoCliente && customerTypes.includes(r.tipoCliente));
@@ -54,7 +54,7 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
 
     // período anterior usando função centralizada
     const { prevStartDate, prevEndDate } = previousPeriodFromRange(startDate, endDate);
-    const previousData = rawData.filter(row => isDateInRange(row.data, prevStartDate, prevEndDate));
+    const previousData = rawData.filter(row => isDateInRangeISO(row.data, prevStartDate, prevEndDate));
 
     setKpis(computeSalesKPIs(f, rawData, startDate, endDate));
     setChartData(
