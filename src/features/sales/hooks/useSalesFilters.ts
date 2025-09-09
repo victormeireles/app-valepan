@@ -3,7 +3,7 @@ import { ProductSaleRow } from '@/lib/sheets';
 import type { ChartDataStructure, KpisData } from '@/features/sales/types';
 import { computeSalesKPIs } from '@/features/sales/hooks/useSalesKPIs';
 import { computeSalesChartData } from '@/features/sales/hooks/useSalesChartData';
-import { createPeriodStartDate, createPeriodEndDate } from '@/features/common/utils/date';
+import { createPeriodStartDate, createPeriodEndDate, previousPeriodFromRange, isDateInRange } from '@/features/common/utils/date';
 
 export type UseSalesFiltersArgs = {
   rawData: ProductSaleRow[];
@@ -44,48 +44,17 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
   const apply = (clients: string[], products: string[], customerTypes: string[] = []) => {
     if (!startDate || !endDate) return;
 
-    // Usar as datas UTC diretamente para evitar problemas de timezone
-    const s = new Date(startDate);
-    const e = new Date(endDate);
-
-    let f = rawData.filter(row => row.data >= s && row.data <= e);
+    // Usar comparação apenas de datas (ignorando hora) para evitar problemas de timezone
+    let f = rawData.filter(row => isDateInRange(row.data, startDate, endDate));
     if (clients.length > 0) f = f.filter(r => clients.includes(r.cliente));
     if (products.length > 0) f = f.filter(r => r.produto && products.includes(r.produto));
     if (customerTypes.length > 0) f = f.filter(r => r.tipoCliente && customerTypes.includes(r.tipoCliente));
 
     setFilteredData(f);
 
-    // período anterior
-    const startDay = startDate.getDate();
-    const startMonth = startDate.getMonth();
-    const endMonth = endDate.getMonth();
-    const endDay = endDate.getDate();
-
-    const isLastDayOfMonth = (date: Date) => {
-      const nextDay = new Date(date);
-      nextDay.setDate(date.getDate() + 1);
-      return nextDay.getDate() === 1;
-    };
-
-    let prevStartDate: Date;
-    let prevEndDate: Date;
-    if (startDay === 1 && startMonth === endMonth && isLastDayOfMonth(endDate)) {
-      prevStartDate = new Date(startDate.getFullYear(), startMonth - 1, 1);
-      prevEndDate = new Date(startDate.getFullYear(), startMonth, 0);
-    } else if (startDay === 1 && startMonth === endMonth) {
-      prevStartDate = new Date(startDate.getFullYear(), startMonth - 1, 1);
-      prevEndDate = new Date(startDate.getFullYear(), startMonth - 1, endDay);
-    } else {
-      const daysDiff = Math.ceil(((e.getTime()) - (s.getTime())) / (1000 * 60 * 60 * 24));
-      prevEndDate = new Date(s);
-      prevEndDate.setDate(prevEndDate.getDate() - 1);
-      prevStartDate = new Date(prevEndDate);
-      prevStartDate.setDate(prevStartDate.getDate() - daysDiff + 1);
-      prevStartDate.setHours(0, 0, 0, 0);
-      prevEndDate.setHours(23, 59, 59, 999);
-    }
-
-    const previousData = rawData.filter(row => row.data >= prevStartDate && row.data <= prevEndDate);
+    // período anterior usando função centralizada
+    const { prevStartDate, prevEndDate } = previousPeriodFromRange(startDate, endDate);
+    const previousData = rawData.filter(row => isDateInRange(row.data, prevStartDate, prevEndDate));
 
     setKpis(computeSalesKPIs(f, rawData, startDate, endDate));
     setChartData(

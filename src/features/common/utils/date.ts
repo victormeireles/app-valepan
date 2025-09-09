@@ -96,13 +96,17 @@ function formatDDMM(d: Date): string {
   return `${dd}/${mm}`;
 }
 
-// Funções centralizadas para criação de datas de período (UTC)
+// Funções centralizadas para criação de datas de período (local)
 export function createPeriodStartDate(dateString: string): Date {
-  return new Date(dateString + 'T00:00:00.000Z');
+  const [year, month, day] = dateString.split('-').map(n => parseInt(n, 10));
+  const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+  return date;
 }
 
 export function createPeriodEndDate(dateString: string): Date {
-  return new Date(dateString + 'T23:59:59.999Z');
+  const [year, month, day] = dateString.split('-').map(n => parseInt(n, 10));
+  const date = new Date(year, month - 1, day, 23, 59, 59, 999);
+  return date;
 }
 
 // Função para criar um par de datas de período
@@ -127,7 +131,7 @@ export function parseISODateLocal(dateString: string): Date {
   return new Date(y, (m ?? 1) - 1, d ?? 1);
 }
 
-// Função para fazer parse de data no formato brasileiro (dd/mm/yyyy) em UTC
+// Função para fazer parse de data no formato brasileiro (dd/mm/yyyy) em horário local
 export function parseBrazilianDate(dateStr: string): Date | null {
   if (!dateStr) return null;
 
@@ -136,8 +140,8 @@ export function parseBrazilianDate(dateStr: string): Date | null {
     const ddmmyyyyMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (ddmmyyyyMatch) {
       const [, day, month, year] = ddmmyyyyMatch;
-      // Criar data em UTC para evitar problemas de timezone
-      return new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day)));
+      // Criar data em horário local para evitar problemas de timezone
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
     }
 
     // Tentar parse padrão do JavaScript
@@ -150,6 +154,51 @@ export function parseBrazilianDate(dateStr: string): Date | null {
   } catch {
     return null;
   }
+}
+
+// Funções para trabalhar apenas com datas (sem hora)
+export function createDateOnly(year: number, month: number, day: number): Date {
+  return new Date(year, month - 1, day);
+}
+
+export function parseDateOnly(dateString: string): Date | null {
+  if (!dateString) return null;
+  
+  try {
+    const [year, month, day] = dateString.split('-').map(n => parseInt(n, 10));
+    return createDateOnly(year, month, day);
+  } catch {
+    return null;
+  }
+}
+
+// Função para comparar apenas a parte da data (ignorando hora)
+export function isSameDate(date1: Date, date2: Date): boolean {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate();
+}
+
+// Função para verificar se uma data está dentro de um intervalo (apenas datas)
+export function isDateInRange(date: Date, startDate: Date, endDate: Date): boolean {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth();
+  const startDay = startDate.getDate();
+  
+  const endYear = endDate.getFullYear();
+  const endMonth = endDate.getMonth();
+  const endDay = endDate.getDate();
+  
+  // Criar datas para comparação
+  const checkDate = new Date(year, month, day);
+  const rangeStart = new Date(startYear, startMonth, startDay);
+  const rangeEnd = new Date(endYear, endMonth, endDay);
+  
+  return checkDate >= rangeStart && checkDate <= rangeEnd;
 }
 
 

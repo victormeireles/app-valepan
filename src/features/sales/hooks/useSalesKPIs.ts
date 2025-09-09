@@ -10,7 +10,6 @@ export function computeSalesKPIs(
 ): KpisData {
   const startOfDay = toStartOfDay(startDate);
   const endOfDay = toEndOfDay(endDate);
-
   const { prevStartDate, prevEndDate, compareLabel } = previousPeriodFromRange(startOfDay, endOfDay);
 
   const previousData = allData.filter(row => row.data >= prevStartDate && row.data <= prevEndDate);

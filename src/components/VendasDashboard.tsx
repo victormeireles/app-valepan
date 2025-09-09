@@ -12,7 +12,7 @@ import { useTenant } from '@/hooks/useTenant';
 import { useChartJS } from '@/features/common/hooks/useChartJS';
 import { useSalesData } from '@/features/sales/hooks/useSalesData';
 import { useSalesFilters } from '@/features/sales/hooks/useSalesFilters';
-import { createPeriodDates, formatPeriodDisplay } from '@/features/common/utils/date';
+import { createPeriodDates, formatPeriodDisplay, createPeriodStartDate, createPeriodEndDate, previousPeriodFromRange } from '@/features/common/utils/date';
 import type { KpisData, SemanaData, TopItem, RankingItem, ChartDataStructure, ModalData } from '@/features/sales/types';
 import { SalesKPISection } from '@/features/sales/components/SalesKPISection';
 import { WeekSalesChart } from '@/features/sales/components/WeekSalesChart';
@@ -1398,18 +1398,19 @@ export default function VendasDashboard() {
   };
 
   const getVariationTitle = () => {
-    // Exibir datas de início/fim no horário local para evitar recuos por UTC
-    const start = new Date(periodStart.split('T')[0] || periodStart);
-    const end = new Date(periodEnd.split('T')[0] || periodEnd);
-    const startStr = start.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    const endStr = end.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    // Usar as mesmas datas que estão sendo usadas no filtro
+    const startDate = periodStart ? createPeriodStartDate(periodStart) : null;
+    const endDate = periodEnd ? createPeriodEndDate(periodEnd) : null;
     
-    // Calcular período anterior
-    const diffDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const prevEnd = new Date(start.getTime() - (1000 * 60 * 60 * 24));
-    const prevStart = new Date(prevEnd.getTime() - (diffDays - 1) * (1000 * 60 * 60 * 24));
-    const prevStartStr = prevStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    const prevEndStr = prevEnd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    if (!startDate || !endDate) return 'Variação por cliente';
+    
+    // Usar a mesma lógica centralizada para calcular período anterior
+    const { prevStartDate, prevEndDate } = previousPeriodFromRange(startDate, endDate);
+    
+    const startStr = startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const endStr = endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const prevStartStr = prevStartDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const prevEndStr = prevEndDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     
     return `Variação por cliente (${startStr}–${endStr} vs ${prevStartStr}–${prevEndStr})`;
   };
