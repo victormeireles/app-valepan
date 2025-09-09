@@ -92,15 +92,19 @@ export default function VendasDashboard() {
   // Novo: usar hook de dados
   const sales = useSalesData(status === 'authenticated');
 
-  // Sincronizar estados locais com o hook
+  // Sincronizar estados locais com o hook (exceto períodos que são controlados manualmente)
   useEffect(() => {
     if (sales.rawData !== rawData) setRawData(sales.rawData);
     if (sales.meta && sales.meta !== meta) setMeta(sales.meta);
     if (loading !== sales.loading) setLoading(sales.loading);
     if (initialLoad !== sales.initialLoad) setInitialLoad(sales.initialLoad);
     if (accessDenied !== sales.accessDenied) setAccessDenied(sales.accessDenied);
-    if (periodStart !== sales.periodStart) setPeriodStart(sales.periodStart);
-    if (periodEnd !== sales.periodEnd) setPeriodEnd(sales.periodEnd);
+    
+    // Só sincronizar períodos se ainda não foram definidos (carregamento inicial)
+    if (!periodStart && sales.periodStart) {
+      setPeriodStart(sales.periodStart);
+      setPeriodEnd(sales.periodEnd);
+    }
   }, [sales, rawData, meta, loading, initialLoad, accessDenied, periodStart, periodEnd]);
 
   // Hook unificado de filtros (substitui applyFilters/effect)
