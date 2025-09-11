@@ -66,12 +66,14 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
     let f = rawData.filter(row => {
       const isInRange = isDateInRangeISO(row.data, startDate, endDate);
       if (row.data.toISOString().split('T')[0] === '2025-09-01') {
-        console.log('🔍 [PRODUCTION DEBUG] 01/09 row:', { 
+        console.log('🔍 [PRODUCTION DEBUG] 01/09 row BEFORE isDateInRangeISO:', { 
           data: row.data, 
           iso: row.data.toISOString().split('T')[0],
-          isInRange,
           startDate: startDate.toISOString().split('T')[0],
           endDate: endDate.toISOString().split('T')[0]
+        });
+        console.log('🔍 [PRODUCTION DEBUG] 01/09 row AFTER isDateInRangeISO:', { 
+          isInRange
         });
       }
       return isInRange;

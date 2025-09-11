@@ -233,8 +233,12 @@ export function isDateInRangeISO(dateInput: Date | string, startDateInput: Date 
   
   // Log apenas para datas específicas que estamos debugando
   if (dateStr === '2025-09-01' || dateStr === '2025-08-01') {
-    console.log('🔍 [PRODUCTION DEBUG] isDateInRangeISO:', {
+    console.log('🔍 [PRODUCTION DEBUG] isDateInRangeISO INPUT:', {
       dateInput,
+      startDateInput,
+      endDateInput
+    });
+    console.log('🔍 [PRODUCTION DEBUG] isDateInRangeISO PARSED:', {
       dateStr,
       startStr,
       endStr,
