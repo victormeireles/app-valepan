@@ -19,6 +19,26 @@ export interface KpisData {
   faturamentoAnual: KpiValue;
   compareLabel: string;
   showProjection: boolean;
+  // Dados para tooltips
+  currentPeriod: {
+    start: Date;
+    end: Date;
+  };
+  previousPeriod: {
+    start: Date;
+    end: Date;
+  };
+  // Valores anteriores para comparação
+  previousValues: {
+    faturamento: number;
+    margemBruta: number;
+    pedidos: number;
+    ticketMedio: number;
+    clientes: number;
+    unidades: number;
+    caixas: number;
+    faturamentoAnual: number;
+  };
 }
 
 export interface SemanaData {

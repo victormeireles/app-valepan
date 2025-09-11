@@ -88,6 +88,25 @@ export function computeSalesKPIs(
     faturamentoAnual: { valor: faturamentoYTD, variacao: calcVariacao(faturamentoYTD, faturamentoYTDAnterior), projecao: projecaoAnual },
     compareLabel,
     showProjection,
+    // Dados para tooltips
+    currentPeriod: {
+      start: startOfDay,
+      end: endOfDay,
+    },
+    previousPeriod: {
+      start: prevStartDate,
+      end: prevEndDate,
+    },
+    previousValues: {
+      faturamento: faturamentoAnterior,
+      margemBruta: margemBrutaAnterior,
+      pedidos: pedidosAnterior,
+      ticketMedio: ticketMedioAnterior,
+      clientes: clientesUnicosAnterior,
+      unidades: unidadesAnterior,
+      caixas: caixasAnterior,
+      faturamentoAnual: faturamentoYTDAnterior,
+    },
   };
 }
 

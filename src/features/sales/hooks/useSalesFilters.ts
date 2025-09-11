@@ -3,7 +3,7 @@ import { ProductSaleRow } from '@/lib/sheets';
 import type { ChartDataStructure, KpisData } from '@/features/sales/types';
 import { computeSalesKPIs } from '@/features/sales/hooks/useSalesKPIs';
 import { computeSalesChartData } from '@/features/sales/hooks/useSalesChartData';
-import { createPeriodStartDate, createPeriodEndDate, previousPeriodFromRange, isDateInRange, isDateInRangeISO } from '@/features/common/utils/date';
+import { createPeriodStartDate, createPeriodEndDate, previousPeriodFromRange, isDateInRangeISO } from '@/features/common/utils/date';
 
 export type UseSalesFiltersArgs = {
   rawData: ProductSaleRow[];
