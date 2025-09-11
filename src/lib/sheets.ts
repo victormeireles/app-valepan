@@ -119,13 +119,19 @@ export async function fetchSheetData(dashboard: string = 'sales') {
       // Converter campos de data comuns usando conversão independente de timezone
       if ('data' in result && result.data) {
         const dateStr = String(result.data);
+        console.log('🔍 [PRODUCTION DEBUG] Raw data from Supabase:', result.data, 'String:', dateStr);
+        
         // Se é uma string ISO (YYYY-MM-DD), criar data local
         if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
           const [year, month, day] = dateStr.split('-').map(n => parseInt(n, 10));
-          (result as { data: Date }).data = new Date(year, month - 1, day);
+          const localDate = new Date(year, month - 1, day);
+          console.log('🔍 [PRODUCTION DEBUG] ISO string conversion:', { year, month, day, localDate });
+          (result as { data: Date }).data = localDate;
         } else {
           // Para outros formatos, usar conversão padrão
-          (result as { data: Date }).data = new Date(result.data);
+          const standardDate = new Date(result.data);
+          console.log('🔍 [PRODUCTION DEBUG] Standard conversion:', { original: result.data, converted: standardDate });
+          (result as { data: Date }).data = standardDate;
         }
       }
       if ('first_purchase' in result && result.first_purchase) {

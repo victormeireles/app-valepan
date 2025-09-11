@@ -229,8 +229,22 @@ export function isDateInRangeISO(dateInput: Date | string, startDateInput: Date 
   const startStr = parseDateToISOString(startDateInput);
   const endStr = parseDateToISOString(endDateInput);
   
+  const isInRange = dateStr >= startStr && dateStr <= endStr;
+  
+  // Log apenas para datas específicas que estamos debugando
+  if (dateStr === '2025-09-01' || dateStr === '2025-08-01') {
+    console.log('🔍 [PRODUCTION DEBUG] isDateInRangeISO:', {
+      dateInput,
+      dateStr,
+      startStr,
+      endStr,
+      isInRange,
+      comparison: `${dateStr} >= ${startStr} && ${dateStr} <= ${endStr}`
+    });
+  }
+  
   // Comparação de strings ISO (YYYY-MM-DD) é lexicograficamente correta
-  return dateStr >= startStr && dateStr <= endStr;
+  return isInRange;
 }
 
 // Função para criar datas de período que retorna strings ISO
