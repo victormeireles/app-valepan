@@ -119,13 +119,11 @@ export async function fetchSheetData(dashboard: string = 'sales') {
       // Converter campos de data comuns usando conversão independente de timezone
       if ('data' in result && result.data) {
         const dateStr = String(result.data);
-        console.log('🔍 [PRODUCTION DEBUG] Raw data from Supabase:', result.data, 'String:', dateStr);
         
         // Se é uma string ISO (YYYY-MM-DD), criar data local
         if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
           const [year, month, day] = dateStr.split('-').map(n => parseInt(n, 10));
           const localDate = new Date(year, month - 1, day);
-          console.log('🔍 [PRODUCTION DEBUG] ISO string conversion:', { year, month, day, localDate });
           (result as { data: Date }).data = localDate;
         } else {
           // Para strings UTC (YYYY-MM-DDTHH:mm:ss.sssZ), sempre criar data local
@@ -133,17 +131,10 @@ export async function fetchSheetData(dashboard: string = 'sales') {
             const [datePart] = dateStr.split('T');
             const [year, month, day] = datePart.split('-').map(n => parseInt(n, 10));
             const localDate = new Date(year, month - 1, day);
-            console.log('🔍 [PRODUCTION DEBUG] UTC string conversion:', { 
-              original: result.data, 
-              datePart, 
-              localDate,
-              reason: 'UTC string detected, creating local date'
-            });
             (result as { data: Date }).data = localDate;
           } else {
             // Para outros formatos, usar conversão padrão
             const standardDate = new Date(result.data);
-            console.log('🔍 [PRODUCTION DEBUG] Standard conversion:', { original: result.data, converted: standardDate });
             (result as { data: Date }).data = standardDate;
           }
         }

@@ -38,51 +38,14 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
   const [kpis, setKpis] = useState<KpisData | null>(null);
   const [chartData, setChartData] = useState<ChartDataStructure | null>(null);
 
-  const startDate = useMemo(() => {
-    if (!periodStart) return null;
-    const date = createPeriodStartDate(periodStart);
-    console.log('🔍 [PRODUCTION DEBUG] Period start:', { periodStart, startDate: date });
-    return date;
-  }, [periodStart]);
-  
-  const endDate = useMemo(() => {
-    if (!periodEnd) return null;
-    const date = createPeriodEndDate(periodEnd);
-    console.log('🔍 [PRODUCTION DEBUG] Period end:', { periodEnd, endDate: date });
-    return date;
-  }, [periodEnd]);
+  const startDate = useMemo(() => (periodStart ? createPeriodStartDate(periodStart) : null), [periodStart]);
+  const endDate = useMemo(() => (periodEnd ? createPeriodEndDate(periodEnd) : null), [periodEnd]);
 
   const apply = (clients: string[], products: string[], customerTypes: string[] = []) => {
     if (!startDate || !endDate) return;
 
     // Usar comparação independente de timezone com strings ISO
-    console.log('🔍 [PRODUCTION DEBUG] Filtering data:', { 
-      startDate, 
-      endDate, 
-      totalRows: rawData.length,
-      sampleDates: rawData.slice(0, 3).map(r => ({ data: r.data, iso: r.data.toISOString().split('T')[0] }))
-    });
-    
-    let f = rawData.filter(row => {
-      const isInRange = isDateInRangeISO(row.data, startDate, endDate);
-      if (row.data.toISOString().split('T')[0] === '2025-09-01') {
-        console.log('🔍 [PRODUCTION DEBUG] 01/09 row BEFORE isDateInRangeISO:', { 
-          data: row.data, 
-          iso: row.data.toISOString().split('T')[0],
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0]
-        });
-        console.log('🔍 [PRODUCTION DEBUG] 01/09 row AFTER isDateInRangeISO:', { 
-          isInRange
-        });
-      }
-      return isInRange;
-    });
-    
-    console.log('🔍 [PRODUCTION DEBUG] Filtered data:', { 
-      filteredCount: f.length,
-      sampleFiltered: f.slice(0, 3).map(r => ({ data: r.data, iso: r.data.toISOString().split('T')[0] }))
-    });
+    let f = rawData.filter(row => isDateInRangeISO(row.data, startDate, endDate));
     if (clients.length > 0) f = f.filter(r => clients.includes(r.cliente));
     if (products.length > 0) f = f.filter(r => r.produto && products.includes(r.produto));
     if (customerTypes.length > 0) f = f.filter(r => r.tipoCliente && customerTypes.includes(r.tipoCliente));
