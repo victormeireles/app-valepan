@@ -128,23 +128,21 @@ export async function fetchSheetData(dashboard: string = 'sales') {
           console.log('🔍 [PRODUCTION DEBUG] ISO string conversion:', { year, month, day, localDate });
           (result as { data: Date }).data = localDate;
         } else {
-          // Para outros formatos, detectar se é uma data UTC que precisa ser corrigida
-          const standardDate = new Date(result.data);
-          const isoString = standardDate.toISOString().split('T')[0];
-          const originalString = dateStr.split('T')[0];
-          
-          // Se a conversão mudou a data (problema de timezone), usar a data original
-          if (isoString !== originalString && originalString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            const [year, month, day] = originalString.split('-').map(n => parseInt(n, 10));
-            const correctedDate = new Date(year, month - 1, day);
-            console.log('🔍 [PRODUCTION DEBUG] Timezone correction:', { 
+          // Para strings UTC (YYYY-MM-DDTHH:mm:ss.sssZ), sempre criar data local
+          if (dateStr.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)) {
+            const [datePart] = dateStr.split('T');
+            const [year, month, day] = datePart.split('-').map(n => parseInt(n, 10));
+            const localDate = new Date(year, month - 1, day);
+            console.log('🔍 [PRODUCTION DEBUG] UTC string conversion:', { 
               original: result.data, 
-              standard: standardDate, 
-              corrected: correctedDate,
-              reason: 'Timezone offset detected'
+              datePart, 
+              localDate,
+              reason: 'UTC string detected, creating local date'
             });
-            (result as { data: Date }).data = correctedDate;
+            (result as { data: Date }).data = localDate;
           } else {
+            // Para outros formatos, usar conversão padrão
+            const standardDate = new Date(result.data);
             console.log('🔍 [PRODUCTION DEBUG] Standard conversion:', { original: result.data, converted: standardDate });
             (result as { data: Date }).data = standardDate;
           }
@@ -155,17 +153,12 @@ export async function fetchSheetData(dashboard: string = 'sales') {
         if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
           const [year, month, day] = dateStr.split('-').map(n => parseInt(n, 10));
           (result as { first_purchase: Date }).first_purchase = new Date(year, month - 1, day);
+        } else if (dateStr.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)) {
+          const [datePart] = dateStr.split('T');
+          const [year, month, day] = datePart.split('-').map(n => parseInt(n, 10));
+          (result as { first_purchase: Date }).first_purchase = new Date(year, month - 1, day);
         } else {
-          const standardDate = new Date(result.first_purchase);
-          const isoString = standardDate.toISOString().split('T')[0];
-          const originalString = dateStr.split('T')[0];
-          
-          if (isoString !== originalString && originalString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            const [year, month, day] = originalString.split('-').map(n => parseInt(n, 10));
-            (result as { first_purchase: Date }).first_purchase = new Date(year, month - 1, day);
-          } else {
-            (result as { first_purchase: Date }).first_purchase = standardDate;
-          }
+          (result as { first_purchase: Date }).first_purchase = new Date(result.first_purchase);
         }
       }
       if ('last_purchase' in result && result.last_purchase) {
@@ -173,17 +166,12 @@ export async function fetchSheetData(dashboard: string = 'sales') {
         if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
           const [year, month, day] = dateStr.split('-').map(n => parseInt(n, 10));
           (result as { last_purchase: Date }).last_purchase = new Date(year, month - 1, day);
+        } else if (dateStr.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)) {
+          const [datePart] = dateStr.split('T');
+          const [year, month, day] = datePart.split('-').map(n => parseInt(n, 10));
+          (result as { last_purchase: Date }).last_purchase = new Date(year, month - 1, day);
         } else {
-          const standardDate = new Date(result.last_purchase);
-          const isoString = standardDate.toISOString().split('T')[0];
-          const originalString = dateStr.split('T')[0];
-          
-          if (isoString !== originalString && originalString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            const [year, month, day] = originalString.split('-').map(n => parseInt(n, 10));
-            (result as { last_purchase: Date }).last_purchase = new Date(year, month - 1, day);
-          } else {
-            (result as { last_purchase: Date }).last_purchase = standardDate;
-          }
+          (result as { last_purchase: Date }).last_purchase = new Date(result.last_purchase);
         }
       }
       
