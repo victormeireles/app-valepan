@@ -24,7 +24,7 @@ export default function MobileTenantSelector() {
         disabled={isChanging}
       >
         <div className="mobile-tenant-inner">
-          <span className="material-icons mobile-tenant-icon">business</span>
+          <span className="material-icons mobile-tenant-icon">swap_horiz</span>
           <span className="mobile-tenant-label">
             {isChanging ? "Trocando..." : currentTenant.name || "Empresa"}
           </span>

@@ -29,9 +29,11 @@ export function useMultiTenant() {
       // Atualiza o token no backend e a sessão no frontend
       await update({ tenantId: newTenantId });
 
-      // Força o refresh dos Server Components para usar o novo tenant
+      // Redireciona para a home ao trocar de tenant
+      // Isso garante que o usuário não fique em um dashboard 
+      // que o novo tenant pode não ter acesso
       startTransition(() => {
-        router.refresh();
+        router.push('/');
       });
       
     } catch (error) {
