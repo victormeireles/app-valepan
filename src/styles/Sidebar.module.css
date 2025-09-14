@@ -115,6 +115,59 @@
   pointer-events: none;
 }
 
+/* Tenant Selector */
+.tenantSelector {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.tenantDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(18,26,46,.95);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.35);
+  backdrop-filter: blur(8px);
+  z-index: 1001;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.tenantOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 0;
+  color: #c9d4ea;
+  text-align: left;
+  width: 100%;
+  transition: background .18s ease;
+}
+
+.tenantOption:hover {
+  background: rgba(255,255,255,.08);
+}
+
+.tenantOption.active {
+  background: rgba(230,126,34,.22);
+  color: #ffd9b3;
+}
+
+.tenantName {
+  font-size: 14px;
+  font-weight: 500;
+  flex: 1;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 /* Esconder sidebar em mobile */
 @media (max-width: 768px) {
   .sidebar {

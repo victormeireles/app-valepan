@@ -6,10 +6,12 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { fetchExternalSheets, type ExternalSheet } from '@/lib/externalSheets';
 import { fetchAvailableDashboards, type DashboardInfo } from '@/lib/sheets';
+import { useTenant } from '@/hooks/useTenant';
 import LoadingOverlay from '@/components/LoadingOverlay';
 
 export default function Home() {
   const { data: session, status } = useSession();
+  const { tenantName } = useTenant();
   const [loading, setLoading] = useState(true);
   const [externalSheets, setExternalSheets] = useState<ExternalSheet[]>([]);
   const [availableDashboards, setAvailableDashboards] = useState<DashboardInfo[]>([]);
@@ -571,7 +573,7 @@ export default function Home() {
       <header className="app-header">
         <div className="header-left">
           <div className="brand">
-            <span>{session?.tenantName ?? ''}</span> Dash
+            <span>{tenantName}</span> Dash
           </div>
         </div>
         <div className="header-right">

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getSupabaseAdminClient } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 type MetaResponse = {
   hasPackages: boolean;
   hasBoxes: boolean;
@@ -27,7 +29,7 @@ export async function GET(
     }
 
     const supabase = getSupabaseAdminClient();
-    const tenantId = session.tenantId as string | undefined;
+    const tenantId = session.tenantId;
     if (!tenantId) {
       return NextResponse.json({ error: 'Tenant não encontrado na sessão' }, { status: 400 });
     }

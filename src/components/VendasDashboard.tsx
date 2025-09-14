@@ -1904,7 +1904,7 @@ export default function VendasDashboard() {
           
           {showPeriodPanel && (
             <>
-              <div className={vendasStyles['modal-overlay']} onClick={() => setShowPeriodPanel(false)}></div>
+              <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
               <div className={vendasStyles['period-panel']} data-modal-content>
                 <div className={vendasStyles['period-presets']}>
                   <button className={vendasStyles.chip} onClick={handlePresetThisMonth}>Este mês</button>

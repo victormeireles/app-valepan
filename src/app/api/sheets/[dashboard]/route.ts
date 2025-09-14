@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/lib/supabase';
 import { parseBrazilianDate } from '@/features/common/utils/date';
+export const dynamic = 'force-dynamic';
 
 interface SheetRow {
   nfValida: boolean;
@@ -373,7 +374,8 @@ export async function GET(
     
     // Obter configuração dinamicamente do Supabase por tenant
     const supabase = getSupabaseAdminClient();
-    const tenantId = session.tenantId as string | undefined;
+    const tenantId = session.tenantId;
+    
     if (!tenantId) {
       return NextResponse.json({ error: 'Tenant não encontrado na sessão' }, { status: 400 });
     }
@@ -388,11 +390,16 @@ export async function GET(
       .maybeSingle();
 
     if (sheetCfgErr) {
+      console.error('❌ [sheets API] Erro ao buscar sheet_configs:', sheetCfgErr);
       return NextResponse.json({ error: 'Erro ao buscar sheet_configs', details: sheetCfgErr.message }, { status: 500 });
     }
     if (!sheetCfg) {
+      console.error('❌ [sheets API] Configuração de planilha não encontrada para:', { tenantId, dashboard });
       return NextResponse.json({ error: 'Configuração de planilha não encontrada para o tenant' }, { status: 404 });
     }
+
+    // Log para depurar qual planilha está sendo acessada
+    console.log(`🔑 [sheets API] Acessando planilha para Tenant: ${tenantId}, Dashboard: ${dashboard}, Sheet ID: ${sheetCfg.sheet_id}`);
 
     // column_mappings: buscar mapeamento das colunas lógicas
     const { data: mappings, error: mapErr } = await supabase

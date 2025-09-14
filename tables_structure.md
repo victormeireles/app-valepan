@@ -53,7 +53,6 @@ create table public.sheet_configs (
   sheet_tab text not null default 'vendas'::text,
   header_row integer not null default 1,
   service_account_access boolean not null default false,
-  last_validation_at timestamp with time zone null,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
   constraint sheet_configs_pkey primary key (id),

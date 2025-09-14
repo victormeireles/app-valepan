@@ -5,6 +5,12 @@ declare module "next-auth" {
     accessToken?: string
     tenantId?: string
     tenantName?: string
+    tenantSlug?: string
+    availableTenants?: Array<{
+      id: string
+      name: string
+      slug: string
+    }>
   }
 }
 
@@ -15,6 +21,12 @@ declare module "next-auth/jwt" {
     expiresAt?: number
     tenantId?: string
     tenantName?: string
+    tenantSlug?: string
+    availableTenants?: Array<{
+      id: string
+      name: string
+      slug: string
+    }>
   }
 }
 

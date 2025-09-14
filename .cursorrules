@@ -54,6 +54,7 @@
 
 ## Build Compliance
 - All code must pass `npm run build` without errors
+- Always before run npm run build, make sure all "npm run dev" process are killed
 - Remove unused functions and variables immediately
 - Use proper type assertions, not `any`
 - Handle all possible undefined values

@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { CustomerRow, fetchSheetData, formatValueBR } from '@/lib/sheets';
+import { CustomerRow, fetchSheetData, formatValueBR, formatK } from '@/lib/sheets';
 import { useTenant } from '@/hooks/useTenant';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import DashboardHeader from '@/components/DashboardHeader';
+import Tooltip from '@/components/Tooltip';
 import vendasStyles from '@/styles/vendas.module.css';
 import { createPeriodDates } from '@/features/common/utils/date';
 
@@ -45,13 +46,12 @@ export default function CustomerDashboard() {
       );
     }
 
-    // Filtro por período (primeira compra)
+    // Filtro por período baseado na data_venda
     if (periodStart && periodEnd) {
       const { startDate, endDate } = createPeriodDates(periodStart, periodEnd);
       filtered = filtered.filter(customer => {
-        if (!customer.first_purchase) return false;
-        const firstPurchase = new Date(customer.first_purchase);
-        return firstPurchase >= startDate && firstPurchase <= endDate;
+        const dataVenda = new Date(customer.data_venda);
+        return dataVenda >= startDate && dataVenda <= endDate;
       });
     }
 
@@ -94,9 +94,10 @@ export default function CustomerDashboard() {
     );
   }
 
-  const totalCustomers = filteredCustomers.length;
+  // Calcular KPIs baseados na nova estrutura
+  const totalCustomers = [...new Set(filteredCustomers.map(c => c.customer))].length; // Clientes únicos
   const totalValue = filteredCustomers.reduce((sum, customer) => sum + customer.value, 0);
-  const totalOrders = filteredCustomers.reduce((sum, customer) => sum + customer.orders, 0);
+  const totalOrders = [...new Set(filteredCustomers.map(c => c.pedido))].length; // Pedidos únicos
   const avgValuePerCustomer = totalCustomers > 0 ? totalValue / totalCustomers : 0;
 
   // Dados para filtros
@@ -165,8 +166,8 @@ export default function CustomerDashboard() {
       {/* Header */}
       <DashboardHeader
         title="Clientes"
-        tenantName={tenantName}
-        subtitle={`${totalCustomers} clientes cadastrados`}
+        tenantName={tenantName ?? ''}
+        subtitle={`${totalCustomers} clientes únicos no período`}
         filters={filters}
       />
 
@@ -176,23 +177,59 @@ export default function CustomerDashboard() {
         {/* KPIs */}
         <div className={vendasStyles.kpis}>
           <div className={vendasStyles.kpi}>
-            <div className={vendasStyles.kpiLabel}>Total de Clientes</div>
-            <div className={vendasStyles.kpiValue}>{totalCustomers}</div>
+            <div className={vendasStyles['kpi-label']}>
+              Total de Clientes
+              <Tooltip content="Número de clientes únicos no período selecionado" position="top">
+                <span className={vendasStyles['kpi-info-icon']}>ⓘ</span>
+              </Tooltip>
+            </div>
+            <div className={vendasStyles['kpi-value']}>
+              <div className={vendasStyles['kpi-main-row']}>
+                <span className={vendasStyles['kpi-main-value']}>{formatK(totalCustomers)}</span>
+              </div>
+            </div>
           </div>
 
           <div className={vendasStyles.kpi}>
-            <div className={vendasStyles.kpiLabel}>Valor Total</div>
-            <div className={vendasStyles.kpiValue}>{formatValueBR(totalValue)}</div>
+            <div className={vendasStyles['kpi-label']}>
+              Valor Total
+              <Tooltip content="Valor total acumulado no período selecionado" position="top">
+                <span className={vendasStyles['kpi-info-icon']}>ⓘ</span>
+              </Tooltip>
+            </div>
+            <div className={vendasStyles['kpi-value']}>
+              <div className={vendasStyles['kpi-main-row']}>
+                <span className={vendasStyles['kpi-main-value']}>R$ {formatK(totalValue)}</span>
+              </div>
+            </div>
           </div>
 
           <div className={vendasStyles.kpi}>
-            <div className={vendasStyles.kpiLabel}>Total de Pedidos</div>
-            <div className={vendasStyles.kpiValue}>{totalOrders}</div>
+            <div className={vendasStyles['kpi-label']}>
+              Total de Pedidos
+              <Tooltip content="Número total de pedidos únicos no período selecionado" position="top">
+                <span className={vendasStyles['kpi-info-icon']}>ⓘ</span>
+              </Tooltip>
+            </div>
+            <div className={vendasStyles['kpi-value']}>
+              <div className={vendasStyles['kpi-main-row']}>
+                <span className={vendasStyles['kpi-main-value']}>{formatK(totalOrders)}</span>
+              </div>
+            </div>
           </div>
 
           <div className={vendasStyles.kpi}>
-            <div className={vendasStyles.kpiLabel}>Ticket Médio</div>
-            <div className={vendasStyles.kpiValue}>{formatValueBR(avgValuePerCustomer)}</div>
+            <div className={vendasStyles['kpi-label']}>
+              Ticket Médio
+              <Tooltip content="Valor médio por cliente no período (Valor Total ÷ Total de Clientes)" position="top">
+                <span className={vendasStyles['kpi-info-icon']}>ⓘ</span>
+              </Tooltip>
+            </div>
+            <div className={vendasStyles['kpi-value']}>
+              <div className={vendasStyles['kpi-main-row']}>
+                <span className={vendasStyles['kpi-main-value']}>R$ {formatK(avgValuePerCustomer)}</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -221,10 +258,9 @@ export default function CustomerDashboard() {
                     <tr>
                       <th>Cliente</th>
                       <th>Tipo</th>
-                      <th>Primeira Compra</th>
-                      <th>Última Compra</th>
-                      <th className={vendasStyles.amount}>Valor Total</th>
-                      <th className={vendasStyles.amount}>Pedidos</th>
+                      <th>Data da Venda</th>
+                      <th>Pedido</th>
+                      <th className={vendasStyles.amount}>Valor</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -241,22 +277,13 @@ export default function CustomerDashboard() {
                           </span>
                         </td>
                         <td>
-                          {customer.first_purchase 
-                            ? customer.first_purchase.toLocaleDateString('pt-BR')
-                            : 'N/A'
-                          }
+                          {customer.data_venda.toLocaleDateString('pt-BR')}
                         </td>
                         <td>
-                          {customer.last_purchase 
-                            ? customer.last_purchase.toLocaleDateString('pt-BR')
-                            : 'N/A'
-                          }
+                          {customer.pedido}
                         </td>
                         <td className={vendasStyles.amount}>
                           {formatValueBR(customer.value)}
-                        </td>
-                        <td className={vendasStyles.amount}>
-                          {customer.orders}
                         </td>
                       </tr>
                     ))}

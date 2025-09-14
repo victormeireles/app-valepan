@@ -28,45 +28,65 @@ const authConfig = {
 	basePath: "/api/auth",
 	callbacks: {
 		// @ts-expect-error - NextAuth v5 callback typing
-		async jwt({ token, account, user }) {
+		async jwt({ token, account, user, trigger, session }) {
+			// Gatilho de atualização para troca de tenant
+			if (trigger === "update" && session?.tenantId) {
+				const availableTenants = (token.availableTenants as Array<{ id: string; name: string; slug: string }>) || [];
+				const newTenant = availableTenants.find(t => t.id === session.tenantId);
+
+				if (newTenant) {
+					token.tenantId = newTenant.id;
+					token.tenantName = newTenant.name;
+					token.tenantSlug = newTenant.slug;
+				}
+				return token;
+			}
+
 			// Primeira vez (login) - salvar tokens e dados do tenant
 			if (account) {
 				token.accessToken = account.access_token;
 				token.refreshToken = account.refresh_token;
 				token.expiresAt = account.expires_at;
 				
-				// Buscar tenant do membro pelo e-mail
+				// Buscar todos os tenants do membro pelo e-mail
 				try {
 					const email = (user?.email as string | undefined)?.toLowerCase();
 					if (email) {
 						const supabase = getSupabaseAdminClient();
-						// Primeiro, buscar o tenant_id do membro
+						// Buscar todos os tenants do membro
 						const { data: memberData, error: memberError } = await supabase
 							.from('tenant_members')
-							.select('tenant_id')
-							.ilike('email', email)
-							.limit(1)
-							.maybeSingle();
+							.select(`
+								tenant_id,
+								tenants!inner(
+									id,
+									name,
+									slug
+								)
+							`)
+							.ilike('email', email);
 
 						if (memberError) {
-							console.error('[JWT Callback] Erro ao buscar tenant_id do membro:', memberError);
-						} else if (memberData && memberData.tenant_id) {
-							const tenantId = memberData.tenant_id;
+							console.error('[JWT Callback] Erro ao buscar tenants do membro:', memberError);
+						} else if (memberData && memberData.length > 0) {
+							// Criar lista de tenants disponíveis
+							const availableTenants = memberData.map(member => {
+								const tenant = Array.isArray(member.tenants) ? member.tenants[0] : member.tenants;
+								return {
+									id: member.tenant_id,
+									name: (tenant as { name: string }).name,
+									slug: (tenant as { slug: string }).slug
+								};
+							});
 							
-							// Agora buscar o nome do tenant
-							const { data: tenantData, error: tenantError } = await supabase
-								.from('tenants')
-								.select('name')
-								.eq('id', tenantId)
-								.limit(1)
-								.maybeSingle();
-
-							if (tenantError) {
-								console.error('[JWT Callback] Erro ao buscar nome do tenant:', tenantError);
-							} else if (tenantData && tenantData.name) {
-								const tenantName = tenantData.name;
-								token.tenantId = tenantId;
-								token.tenantName = tenantName;
+							token.availableTenants = availableTenants;
+							
+							// Usar o primeiro tenant como padrão
+							const firstTenant = availableTenants[0];
+							if (firstTenant) {
+								token.tenantId = firstTenant.id;
+								token.tenantName = firstTenant.name;
+								token.tenantSlug = firstTenant.slug;
 							}
 						}
 					}
@@ -138,6 +158,12 @@ const authConfig = {
 			session.accessToken = token.accessToken as string;
 			session.tenantId = token.tenantId as string | undefined;
 			session.tenantName = token.tenantName as string | undefined;
+			session.tenantSlug = token.tenantSlug as string | undefined;
+			session.availableTenants = token.availableTenants as Array<{
+				id: string
+				name: string
+				slug: string
+			}> | undefined;
 			
 			return session;
 		},

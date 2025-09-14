@@ -32,14 +32,13 @@ export interface ProductSaleRow {
   margemPercent?: number | null;
 }
 
-// Dados de clientes
+// Dados de clientes (nova estrutura)
 export interface CustomerRow {
   customer: string;
   customer_type?: string | null;
-  first_purchase?: Date | null;
-  last_purchase?: Date | null;
   value: number;
-  orders: number;
+  data_venda: Date; // Nova coluna: data da venda
+  pedido: string; // Nova coluna: ID do pedido
 }
 
 // Erro específico para quando o usuário não tem acesso à planilha
@@ -149,7 +148,7 @@ export async function fetchSheetData(dashboard: string = 'sales') {
           const [year, month, day] = datePart.split('-').map(n => parseInt(n, 10));
           (result as { first_purchase: Date }).first_purchase = new Date(year, month - 1, day);
         } else {
-          (result as { first_purchase: Date }).first_purchase = new Date(result.first_purchase);
+          (result as { first_purchase: Date }).first_purchase = new Date(String(result.first_purchase));
         }
       }
       if ('last_purchase' in result && result.last_purchase) {
@@ -162,7 +161,22 @@ export async function fetchSheetData(dashboard: string = 'sales') {
           const [year, month, day] = datePart.split('-').map(n => parseInt(n, 10));
           (result as { last_purchase: Date }).last_purchase = new Date(year, month - 1, day);
         } else {
-          (result as { last_purchase: Date }).last_purchase = new Date(result.last_purchase);
+          (result as { last_purchase: Date }).last_purchase = new Date(String(result.last_purchase));
+        }
+      }
+      
+      // Converter nova coluna data_venda para clientes
+      if ('data_venda' in result && result.data_venda) {
+        const dateStr = String(result.data_venda);
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month, day] = dateStr.split('-').map(n => parseInt(n, 10));
+          (result as { data_venda: Date }).data_venda = new Date(year, month - 1, day);
+        } else if (dateStr.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)) {
+          const [datePart] = dateStr.split('T');
+          const [year, month, day] = datePart.split('-').map(n => parseInt(n, 10));
+          (result as { data_venda: Date }).data_venda = new Date(year, month - 1, day);
+        } else {
+          (result as { data_venda: Date }).data_venda = new Date(result.data_venda);
         }
       }
       

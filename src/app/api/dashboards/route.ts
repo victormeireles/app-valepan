@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getSupabaseAdminClient } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 type DashboardInfo = {
   id: string;
   name: string;
@@ -24,19 +26,20 @@ const DASHBOARD_INFO: Record<string, Omit<DashboardInfo, 'id'>> = {
 };
 
 export async function GET() {
-  try {
-    const session = await auth();
-    if (!session) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
+  const session = await auth();
 
-    const supabase = getSupabaseAdminClient();
-    const tenantId = session.tenantId as string | undefined;
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  }
+
+  try {
+    const tenantId = session.tenantId;
     if (!tenantId) {
       return NextResponse.json({ error: 'Tenant não encontrado na sessão' }, { status: 400 });
     }
 
     // Buscar dashboards configurados para este tenant
+    const supabase = getSupabaseAdminClient();
     const { data: sheetConfigs, error: configError } = await supabase
       .from('sheet_configs')
       .select('dashboard')

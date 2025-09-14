@@ -239,6 +239,11 @@
 	cursor: pointer;
   }
   
+  /* Overlay específico para mobile - garantir que fique abaixo dos painéis */
+  .mobile-filters .modal-overlay {
+	z-index: 9999 !important;
+  }
+  
 
   
   /* Mobile: esconder filtros desktop e mostrar filtros mobile */
@@ -283,18 +288,7 @@
 	font-size: 10px;
   }
   
-  /* Overlay de fundo para painéis mobile */
-  .mobile-filters .period-panel::before {
-	content: '';
-	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background: rgba(0,0,0,.7);
-	z-index: -1;
-	pointer-events: auto;
-  }
+  /* Overlay de fundo para painéis mobile - removido para evitar conflitos */
   
   /* Ajustar posicionamento dos painéis para abrir abaixo dos botões */
   .mobile-filters .period-panel {
@@ -305,7 +299,7 @@
 	width: auto !important;
 	max-height: calc(100vh - 120px) !important;
 	overflow-y: auto !important;
-	z-index: 1001 !important;
+	z-index: 10003 !important;
 	box-shadow: 0 20px 40px rgba(0,0,0,.5) !important;
 	border-radius: 12px !important;
 	padding: 16px !important;
@@ -631,7 +625,7 @@
 	box-shadow: 0 22px 60px rgba(0,0,0,.5); backdrop-filter: blur(8px); 
 	max-height: 80vh; /* Limitar altura máxima da tela */
 	overflow: hidden; /* Esconder overflow do painel */
-	z-index: 10001; /* ficar acima do overlay padrão */
+	z-index: 10002; /* ficar acima do overlay padrão */
   }
   .period-presets { display: flex; gap: 8px; flex-wrap: wrap; }
   .chip { 
