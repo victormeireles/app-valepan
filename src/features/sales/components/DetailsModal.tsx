@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import type { ModalData } from '@/features/sales/types';
-import { useTableSort } from '@/features/sales/hooks/useTableSort';
-import { useExcelExport } from '@/features/sales/hooks/useExcelExport';
-import { DownloadButton } from '@/features/sales/components/DownloadButton';
+import { useTableSort } from '@/features/shared/hooks/useTableSort';
+import { useExcelExport } from '@/features/shared/hooks/useExcelExport';
+import { DownloadButton } from '@/features/shared/components/DownloadButton';
 import vendasStyles from '@/styles/vendas.module.css';
 
 type Props = {
@@ -26,7 +26,11 @@ export function DetailsModal({ show, title, rows, meta, formatK, closeAllModals 
       exportToExcel(sortedData, {
         filename: title.replace(/\s+/g, '_'),
         sheetName: 'Dados',
-        meta
+        columns: [
+          { key: 'produto', label: 'Produto', sortable: true },
+          { key: 'unidades', label: 'Unidades', sortable: true, formatter: (v) => String(v) },
+          { key: 'valor', label: 'Valor', sortable: true, formatter: (v) => String(v) }
+        ]
       });
     } catch (error) {
       console.error('Erro ao exportar:', error);

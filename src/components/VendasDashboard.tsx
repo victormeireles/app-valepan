@@ -19,7 +19,6 @@ import { WeekSalesChart } from '@/features/sales/components/WeekSalesChart';
 import { TopClientsChart } from '@/features/sales/components/TopClientsChart';
 import { TopProductsChart } from '@/features/sales/components/TopProductsChart';
 import { CustomerTypesChart } from '@/features/sales/components/CustomerTypesChart';
-import { EngagementChart } from '@/features/sales/components/EngagementChart';
 import { ProductsByClientTable } from '@/features/sales/components/ProductsByClientTable';
 import { ClientsByProductTable } from '@/features/sales/components/ClientsByProductTable';
 import { DetailsModal } from '@/features/sales/components/DetailsModal';
@@ -64,11 +63,6 @@ export default function VendasDashboard() {
   const [modalTitle, setModalTitle] = useState('');
   const [modalData, setModalData] = useState<ModalData[]>([]);
   
-  // Estados para filtro de períodos de engajamento
-  const [showEngagementFilter, setShowEngagementFilter] = useState(false);
-  const [quaseInativoMeses, setQuaseInativoMeses] = useState(1); // 1 mês = ~30 dias
-  const [inativoMeses, setInativoMeses] = useState(2); // 2 meses = ~60 dias
-  const [maxPeriodoMeses, setMaxPeriodoMeses] = useState(6); // 6 meses máximo
   // Drilldown substituído por selects dedicados
   const [selectCliente, setSelectCliente] = useState<string>('');
   const [selectProduto, setSelectProduto] = useState<string>('');
@@ -113,9 +107,9 @@ export default function VendasDashboard() {
     meta,
     periodStart,
     periodEnd,
-    quaseInativoMeses,
-    inativoMeses,
-    maxPeriodoMeses,
+    quaseInativoMeses: 1,
+    inativoMeses: 2,
+    maxPeriodoMeses: 6,
   });
 
   // Usar estados do hook
@@ -472,13 +466,10 @@ export default function VendasDashboard() {
     const dateTo = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
     
     // Calcular datas de corte baseado em date-to
-    const quaseInativoDias = quaseInativoMeses * 30; // 1 mês = 30 dias
-    const inativoDias = inativoMeses * 30; // 2 meses = 60 dias
-    const maxPeriodoDias = maxPeriodoMeses * 30; // 6 meses = 180 dias
     
-    const dateToMinus1Month = new Date(dateTo.getTime() - quaseInativoDias * msDay);
-    const dateToMinus2Months = new Date(dateTo.getTime() - inativoDias * msDay);
-    const dateToMinus6Months = new Date(dateTo.getTime() - maxPeriodoDias * msDay);
+    const dateToMinus1Month = new Date(dateTo.getTime() - 30 * msDay);
+    const dateToMinus2Months = new Date(dateTo.getTime() - 60 * msDay);
+    const dateToMinus6Months = new Date(dateTo.getTime() - 180 * msDay);
 
     // Usar filteredData se houver filtro de cliente, senão usar allData
     const dataToUse = filteredData.length < allData.length ? filteredData : allData;
@@ -1330,10 +1321,10 @@ export default function VendasDashboard() {
           title = 'Ativos (compraram no período)';
         } else if (idx === 2) {
           setRef = chartData.engajamento.sets.quaseInativos;
-          title = `Quase inativo (última compra entre ${quaseInativoMeses + 1}-${inativoMeses} meses atrás)`;
+          title = `Quase inativo (última compra entre 2-3 meses atrás)`;
     } else {
           setRef = chartData.engajamento.sets.inativos;
-          title = `Inativos (última compra entre ${inativoMeses + 1}-${maxPeriodoMeses} meses atrás)`;
+          title = `Inativos (última compra entre 3-6 meses atrás)`;
         }
         
         const list = Array.from(setRef || [])
@@ -1421,14 +1412,13 @@ export default function VendasDashboard() {
     setShowClientPanel(false);
     setShowProductPanel(false);
     setShowCustomerTypePanel(false);
-    setShowEngagementFilter(false);
     setShowClientPicker(false);
     setShowProductPicker(false);
     setShowModal(false);
   };
 
   // Verificar se algum modal está aberto
-  const isAnyModalOpen = showPeriodPanel || showClientPanel || showProductPanel || showCustomerTypePanel || showEngagementFilter || showClientPicker || showProductPicker || showModal;
+  const isAnyModalOpen = showPeriodPanel || showClientPanel || showProductPanel || showCustomerTypePanel || showClientPicker || showProductPicker || showModal;
 
   // Effect para fechar modais ao clicar fora
   useEffect(() => {
@@ -1453,7 +1443,7 @@ export default function VendasDashboard() {
   }, [isAnyModalOpen]);
 
   // Função para abrir um modal específico (fechando os outros)
-  const openModal = (modalType: 'period' | 'client' | 'product' | 'customerType' | 'engagement') => {
+  const openModal = (modalType: 'period' | 'client' | 'product' | 'customerType') => {
     closeAllModals();
     switch (modalType) {
       case 'period':
@@ -1467,9 +1457,6 @@ export default function VendasDashboard() {
         break;
       case 'customerType':
         setShowCustomerTypePanel(true);
-        break;
-      case 'engagement':
-        setShowEngagementFilter(true);
         break;
     }
   };
@@ -2303,63 +2290,52 @@ export default function VendasDashboard() {
           )}
         </section>
 
-        {/* Insights */}
-        <section className={vendasStyles.charts}>
-                      <div className={`${vendasStyles.card} ${vendasStyles.span2}`}>
-            <h3>{getVariationTitle()}</h3>
-            <div className={vendasStyles['rank-grid']}>
-              <div>
-                                  <div className={vendasStyles['kpi-label']}>Quem mais cresceu</div>
+        {/* Layout principal: 2/3 para variação por cliente, 1/3 para cards */}
+        <div className={vendasStyles['main-layout']}>
+          {/* Seção de Variação por Cliente - 2/3 */}
+          <section className={vendasStyles['variation-section']}>
+            <div className={`${vendasStyles.card} ${vendasStyles.span2}`}>
+              <h3>{getVariationTitle()}</h3>
+              <div className={vendasStyles['rank-grid']}>
+                <div>
+                  <div className={vendasStyles['kpi-label']}>Quem mais cresceu</div>
                   <ul className={vendasStyles.rank}>
-                  {chartData?.rankingUp.map((item: RankingItem) => (
-                    <li 
-                      key={item.cliente}
-                      onClick={() => handleClientClick(item.cliente)}
-                      style={{ cursor: 'pointer' }}
-                      className={selectedClients.includes(item.cliente) ? 'selected' : ''}
-                    >
-                      <span>{item.cliente}</span>
-                      <span className={vendasStyles.pos}>+{formatK(item.delta ?? 0)} ({Math.round(item.pct ?? 0)}%)</span>
-                    </li>
-                  ))}
-                </ul>
-                      </div>
-                      <div>
-                 <div className={vendasStyles['kpi-label']}>Quem mais caiu</div>
-                 <ul className={vendasStyles.rank}>
-                   {chartData?.rankingDown.map((item: RankingItem) => (
-                     <li 
-                       key={item.cliente}
-                       onClick={() => handleClientClick(item.cliente)}
-                       style={{ cursor: 'pointer' }}
-                       className={selectedClients.includes(item.cliente) ? 'selected' : ''}
-                     >
-                       <span>{item.cliente}</span>
-                       <span className={vendasStyles.neg}>{formatK(item.delta ?? 0)} ({Math.round(item.pct ?? 0)}%)</span>
-                    </li>
-                  ))}
-          </ul>
-                      </div>
-                      </div>
-        </div>
-                     <div className={vendasStyles.card}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-             <h3>Engajamento de clientes</h3>
-               <button 
-                 className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`}
-                 data-filter-button
-                 onClick={() => openModal('engagement')}
-                style={{ fontSize: '12px', padding: '6px 12px' }}
-               >
-                 Configurar Períodos
-               </button>
-             </div>
-            <EngagementChart chartData={chartData} />
-          </div>
-        </section>
+                    {chartData?.rankingUp.map((item: RankingItem) => (
+                      <li 
+                        key={item.cliente}
+                        onClick={() => handleClientClick(item.cliente)}
+                        style={{ cursor: 'pointer' }}
+                        className={selectedClients.includes(item.cliente) ? 'selected' : ''}
+                      >
+                        <span>{item.cliente}</span>
+                        <span className={vendasStyles.pos}>+{formatK(item.delta ?? 0)} ({Math.round(item.pct ?? 0)}%)</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <div className={vendasStyles['kpi-label']}>Quem mais caiu</div>
+                  <ul className={vendasStyles.rank}>
+                    {chartData?.rankingDown.map((item: RankingItem) => (
+                      <li 
+                        key={item.cliente}
+                        onClick={() => handleClientClick(item.cliente)}
+                        style={{ cursor: 'pointer' }}
+                        className={selectedClients.includes(item.cliente) ? 'selected' : ''}
+                      >
+                        <span>{item.cliente}</span>
+                        <span className={vendasStyles.neg}>{formatK(item.delta ?? 0)} ({Math.round(item.pct ?? 0)}%)</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </section>
 
-        {/* Blocos: Produtos por cliente e Clientes por produto */}
-        <section className={vendasStyles['table-wrap']} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {/* Seção dos Cards - 1/3 */}
+          <section className={vendasStyles['cards-section']}>
+            <div className={vendasStyles['cards-container']}>
           <ProductsByClientTable
             filteredData={filteredData}
             selectCliente={selectCliente}
@@ -2391,7 +2367,9 @@ export default function VendasDashboard() {
             setShowModal={setShowModal}
             closeAllModals={closeAllModals}
           />
-        </section>
+            </div>
+          </section>
+        </div>
       </main>
 
       <DetailsModal
@@ -2403,124 +2381,6 @@ export default function VendasDashboard() {
         closeAllModals={closeAllModals}
       />
 
-      {/* Modal de Filtro de Engajamento */}
-      {showEngagementFilter && (
-        <>
-          <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
-          <div className={vendasStyles.modal} data-modal-content>
-            <div className={vendasStyles['modal-card']}>
-              <div className={vendasStyles['modal-head']}>
-                <h4>Configurar Períodos de Engajamento</h4>
-                <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={closeAllModals}>Fechar</button>
-              </div>
-              <div style={{padding: '20px'}}>
-                <div style={{marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px'}}>
-                  <input
-                    type="number"
-                    min="1"
-                    max="12"
-                    value={quaseInativoMeses}
-                    onChange={(e) => setQuaseInativoMeses(parseInt(e.target.value) || 1)}
-                    style={{
-                      width: '60px',
-                      padding: '6px 8px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      textAlign: 'center',
-                      backgroundColor: '#fff',
-                      color: '#333'
-                    }}
-                  />
-                  <div>
-                    <label style={{fontWeight: '500', marginBottom: '4px', display: 'block'}}>
-                      Clientes quase inativos: sem comprar há quantos meses
-                    </label>
-                    <small style={{color: '#666', fontSize: '12px'}}>
-                      Atualmente: {quaseInativoMeses} {quaseInativoMeses === 1 ? 'mês' : 'meses'} (~{quaseInativoMeses * 30} dias)
-                    </small>
-                  </div>
-                </div>
-                
-                <div style={{marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px'}}>
-                  <input
-                    type="number"
-                    min="1"
-                    max="12"
-                    value={inativoMeses}
-                    onChange={(e) => setInativoMeses(parseInt(e.target.value) || 2)}
-                    style={{
-                      width: '60px',
-                      padding: '6px 8px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      textAlign: 'center',
-                      backgroundColor: '#fff',
-                      color: '#333'
-                    }}
-                  />
-                  <div>
-                    <label style={{fontWeight: '500', marginBottom: '4px', display: 'block'}}>
-                      Clientes inativos: sem comprar há quantos meses
-                    </label>
-                    <small style={{color: '#666', fontSize: '12px'}}>
-                      Atualmente: {inativoMeses} {inativoMeses === 1 ? 'mês' : 'meses'} (~{inativoMeses * 30} dias)
-                    </small>
-                  </div>
-                </div>
-                
-                <div style={{marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px'}}>
-                  <input
-                    type="number"
-                    min="1"
-                    max="24"
-                    value={maxPeriodoMeses}
-                    onChange={(e) => setMaxPeriodoMeses(parseInt(e.target.value) || 6)}
-                    style={{
-                      width: '60px',
-                      padding: '6px 8px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      textAlign: 'center',
-                      backgroundColor: '#fff',
-                      color: '#333'
-                    }}
-                  />
-                  <div>
-                    <label style={{fontWeight: '500', marginBottom: '4px', display: 'block'}}>
-                      Período máximo de dados (meses)
-                    </label>
-                    <small style={{color: '#666', fontSize: '12px'}}>
-                      Atualmente: {maxPeriodoMeses} {maxPeriodoMeses === 1 ? 'mês' : 'meses'} (~{maxPeriodoMeses * 30} dias)
-                    </small>
-                  </div>
-                </div>
-                
-                <div style={{display: 'flex', gap: '12px', justifyContent: 'flex-end'}}>
-                  <button 
-                    className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`}
-                    onClick={closeAllModals}
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    className={`${vendasStyles.btn} ${vendasStyles.btnPrimary}`}
-                    onClick={() => {
-                      closeAllModals();
-                      // Recarregar os dados com os novos períodos
-                      sales.reload();
-                    }}
-                  >
-                    Aplicar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
 
       {/* Loading overlay */}
       {loading && (

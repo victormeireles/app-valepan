@@ -163,10 +163,8 @@ function normalizeRowsCustomerWithMapping(valuesWithHeader: string[][], mapping:
 
   const customerNameIdx = getIndexByLogical('customer');
   const customerTypeIdx = getIndexByLogical('customer_type');
-  const firstPurchaseIdx = getIndexByLogical('first_purchase');
-  const lastPurchaseIdx = getIndexByLogical('last_purchase');
+  const dateIdx = getIndexByLogical('date');
   const valueIdx = getIndexByLogical('value');
-  const ordersIdx = getIndexByLogical('orders');
 
   const out: CustomerRow[] = [];
   
@@ -179,24 +177,21 @@ function normalizeRowsCustomerWithMapping(valuesWithHeader: string[][], mapping:
 
       const customerType = customerTypeIdx !== undefined ? String(row[customerTypeIdx] ?? '').trim() || null : null;
 
-      // Parse de datas
-      const firstPurchase = firstPurchaseIdx !== undefined ? parseBrazilianDate(String(row[firstPurchaseIdx] ?? '')) : null;
-      const lastPurchase = lastPurchaseIdx !== undefined ? parseBrazilianDate(String(row[lastPurchaseIdx] ?? '')) : null;
+      // Parse da data (cada linha representa uma venda)
+      const date = dateIdx !== undefined ? parseBrazilianDate(String(row[dateIdx] ?? '')) : null;
+      if (!date) continue;
 
-      // Parse de valores numéricos
+      // Parse do valor
       const value = valueIdx !== undefined ? Number(parseValueBR(String(row[valueIdx] ?? ''))) : NaN;
-      const orders = ordersIdx !== undefined ? Number(parseValueBR(String(row[ordersIdx] ?? ''))) : NaN;
-
-      // Valores obrigatórios devem ser válidos
-      if (isNaN(value) || isNaN(orders)) continue;
+      if (isNaN(value)) continue;
 
       out.push({
         customer,
         customer_type: customerType,
-        first_purchase: firstPurchase,
-        last_purchase: lastPurchase,
         value,
-        orders,
+        orders: 1, // Cada linha é um pedido
+        first_purchase: date, // Para simplificar, usamos a data da venda
+        last_purchase: date,  // Para simplificar, usamos a data da venda
       });
     } catch {
       continue;
