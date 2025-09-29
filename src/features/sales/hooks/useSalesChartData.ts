@@ -8,6 +8,7 @@ export type ComputeChartOptions = {
   quaseInativoMeses: number;
   inativoMeses: number;
   maxPeriodoMeses: number;
+  topClientsCount?: number;
 };
 
 export function computeSalesChartData(
@@ -155,7 +156,20 @@ export function computeSalesChartData(
   };
   const curByCli = sumByClient(filteredData);
   const prevByCli = sumByClient(previousData);
-  const allClientsSet = new Set<string>([...curByCli.keys(), ...prevByCli.keys()]);
+  
+  // IMPORTANTE: Quando há filtro de cliente específico, mostrar apenas esses clientes
+  // Caso contrário, mostrar todos os clientes que aparecem nos dados filtrados
+  let allClientsSet: Set<string>;
+  
+  if (filteredData.length < allData.length) {
+    // Se os dados estão filtrados, usar apenas os clientes que aparecem nos dados filtrados
+    const filteredClients = new Set(filteredData.map(row => row.cliente));
+    const prevFilteredClients = new Set(previousData.map(row => row.cliente));
+    allClientsSet = new Set([...filteredClients, ...prevFilteredClients]);
+  } else {
+    // Se não há filtro, usar todos os clientes únicos de ambos os períodos
+    allClientsSet = new Set<string>([...curByCli.keys(), ...prevByCli.keys()]);
+  }
   const variations: RankingItem[] = [] as unknown as RankingItem[];
   for (const cliente of allClientsSet) {
     const cur = curByCli.get(cliente) ?? 0;
@@ -165,8 +179,9 @@ export function computeSalesChartData(
     variations.push({ cliente, cur, prev, delta, pct });
   }
   variations.sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0));
-  const rankingUp = variations.filter(v => (v.delta ?? 0) > 0).slice(0, 5);
-  const rankingDown = variations.filter(v => (v.delta ?? 0) < 0).sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0)).slice(0, 5);
+  const topCount = options.topClientsCount ?? 5;
+  const rankingUp = variations.filter(v => (v.delta ?? 0) > 0).slice(0, topCount);
+  const rankingDown = variations.filter(v => (v.delta ?? 0) < 0).sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0)).slice(0, topCount);
 
   // 6) Engajamento
   const engagement = classifyEngagement(allData, endDate, {

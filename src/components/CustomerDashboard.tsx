@@ -6,10 +6,13 @@ import { redirect } from 'next/navigation';
 import { useTenant } from '@/hooks/useTenant';
 import { useChartJS } from '@/features/common/hooks/useChartJS';
 import { KPISection, type KPICard } from '@/features/shared/components/KPISection';
-import { DetailsModal, type ModalData } from '@/features/shared/components/DetailsModal';
+import { UnifiedDetailsModal, type UnifiedModalData, type ColumnConfig } from '@/features/shared/components/UnifiedDetailsModal';
 import { useCustomerData } from '@/features/sales/hooks/useCustomerData';
+import { useCLVAnalysis } from '@/features/sales/hooks/useCLVAnalysis';
 import CustomerFilters from '@/features/sales/components/CustomerFilters';
 import CustomerEngagementChart from '@/features/sales/components/CustomerEngagementChart';
+import CLVDistributionChart from '@/features/sales/components/CLVDistributionChart';
+import CLVSegmentAnalysis from '@/features/sales/components/CLVSegmentAnalysis';
 import { useExcelExport } from '@/features/shared/hooks/useExcelExport';
 import { CustomerRow } from '@/lib/sheets';
 import vendasStyles from '@/styles/vendas.module.css';
@@ -43,21 +46,42 @@ export default function CustomerDashboard() {
   // Hook para exportação Excel
   const { exportToExcel } = useExcelExport();
   
+  // Estados dos filtros (valores padrão conforme PRD)
+  const [newCustomerMonths, setNewCustomerMonths] = useState(1);
+  const [inactiveMonths, setInactiveMonths] = useState(2);
+  const [almostInactiveMonths, setAlmostInactiveMonths] = useState(1);
+  const [selectedCustomerTypes, setSelectedCustomerTypes] = useState<string[]>([]);
+  
   // Calcular data do último pedido usando useMemo para otimização
   const lastPurchaseDate = useMemo(() => {
     if (rawData.length === 0) return null;
     return new Date(Math.max(...rawData.map(row => row.last_purchase ? new Date(row.last_purchase).getTime() : 0)));
   }, [rawData]);
   
-  // Estados dos filtros (valores padrão conforme PRD)
-  const [newCustomerMonths, setNewCustomerMonths] = useState(1);
-  const [inactiveMonths, setInactiveMonths] = useState(2);
-  const [almostInactiveMonths, setAlmostInactiveMonths] = useState(1);
+  // Filtrar dados baseado nos tipos de cliente selecionados
+  const filteredData = useMemo(() => {
+    if (selectedCustomerTypes.length === 0) return rawData;
+    return rawData.filter(row => 
+      row.customer_type && selectedCustomerTypes.includes(row.customer_type)
+    );
+  }, [rawData, selectedCustomerTypes]);
+  
+  // Hook para análise CLV
+  const { 
+    clvData, 
+    clvKPIs, 
+    clvDistribution, 
+    segmentAnalysis 
+  } = useCLVAnalysis(filteredData, {
+    inactiveMonths,
+    almostInactiveMonths,
+    lastPurchaseDate
+  });
   
   // Estados da UI
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
-  const [modalData, setModalData] = useState<ModalData[]>([]);
+  const [modalData, setModalData] = useState<UnifiedModalData[]>([]);
   
   // Estados dos KPIs e dados calculados
   const [kpis, setKpis] = useState<CustomerKPIs | null>(null);
@@ -217,11 +241,11 @@ export default function CustomerDashboard() {
 
   // Calcular KPIs quando os dados mudarem
   useEffect(() => {
-    if (rawData.length > 0) {
-      calculateKPIs(rawData);
-      calculateEngagement(rawData);
+    if (filteredData.length > 0) {
+      calculateKPIs(filteredData);
+      calculateEngagement(filteredData);
     }
-  }, [rawData, calculateKPIs, calculateEngagement]);
+  }, [filteredData, calculateKPIs, calculateEngagement]);
 
   const formatK = (n: number) => {
     if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -255,7 +279,7 @@ export default function CustomerDashboard() {
 
   // Função para preparar dados dos clientes por categoria
   const getCustomersByCategory = (category: string) => {
-    if (!rawData.length) return [];
+    if (!filteredData.length) return [];
 
     // Usar a data do último pedido como referência em vez da data atual
     const baseDate = lastPurchaseDate || new Date();
@@ -283,7 +307,7 @@ export default function CustomerDashboard() {
       currentMonthValue: number;
     }>();
 
-    rawData.forEach(row => {
+    filteredData.forEach(row => {
       if (!row.first_purchase) return;
       
       const customer = row.customer;
@@ -327,21 +351,28 @@ export default function CustomerDashboard() {
     const customers = Array.from(customerData.values());
 
     // Filtrar por categoria
+    let filteredCustomers: typeof customers = [];
     switch (category) {
       case 'Clientes Novos':
-        return customers.filter(c => c.firstPurchase >= newThreshold);
+        filteredCustomers = customers.filter(c => c.firstPurchase >= newThreshold);
+        break;
       case 'Muito Ativos':
-        return customers.filter(c => c.lastPurchase >= almostInactiveThreshold);
+        filteredCustomers = customers.filter(c => c.lastPurchase >= almostInactiveThreshold);
+        break;
       case 'Quase Inativos':
-        return customers.filter(c => {
+        filteredCustomers = customers.filter(c => {
           const lastPurchase = c.lastPurchase;
           return lastPurchase < almostInactiveThreshold && lastPurchase >= inactiveThreshold;
         });
+        break;
       case 'Inativos':
-        return customers.filter(c => c.lastPurchase < inactiveThreshold);
+        filteredCustomers = customers.filter(c => c.lastPurchase < inactiveThreshold);
+        break;
       default:
-        return [];
+        filteredCustomers = [];
     }
+    
+    return filteredCustomers;
   };
 
   // Função para lidar com clique nas barras do gráfico
@@ -349,17 +380,16 @@ export default function CustomerDashboard() {
     const customers = getCustomersByCategory(category);
     
     // Preparar dados para o modal
-    const modalData: ModalData[] = customers.map(customer => ({
+    const modalData: UnifiedModalData[] = customers.map(customer => ({
       customer: customer.customer,
-      orders: customer.totalOrders,
-      firstOrder: customer.firstPurchase,
-      lastOrder: customer.lastPurchase,
-      totalRevenue: customer.totalValue,
+      customerType: customer.customer_type ?? 'Sem Categoria',
+      totalOrders: customer.totalOrders,
+      firstPurchase: customer.firstPurchase,
+      lastPurchase: customer.lastPurchase,
+      totalValue: customer.totalValue,
       lastMonthRevenue: customer.lastMonthValue,
       currentMonthRevenue: customer.currentMonthValue,
     }));
-
-    // Calcular o mês anterior para exibir no cabeçalho baseado na data de referência
 
     setModalTitle(`${category} (${count} clientes)`);
     setModalData(modalData);
@@ -436,7 +466,8 @@ export default function CustomerDashboard() {
     return `${startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
   };
 
-  const kpiCards: KPICard[] = [
+  // KPIs básicos de clientes
+  const basicKpiCards: KPICard[] = [
     {
       title: 'Total de Clientes',
       value: kpis ? formatNumber(kpis.totalCustomers) : '0',
@@ -461,6 +492,30 @@ export default function CustomerDashboard() {
       title: 'Faturamento Médio Mensal (Recorrentes)',
       value: kpis ? formatCurrency(kpis.averageMonthlyRevenue) : 'R$ 0,00',
       tooltip: `Faturamento médio por cliente recorrente (período: ${formatPeriod(inactiveMonths)})`
+    }
+  ];
+
+  // KPIs específicos do CLV
+  const clvKpiCards: KPICard[] = [
+    {
+      title: 'CLV Médio Total',
+      value: clvKPIs ? formatCurrency(clvKPIs.averageCLV) : 'R$ 0,00',
+      tooltip: 'Valor médio total gasto por cliente ao longo do tempo'
+    },
+    {
+      title: 'CLV Top 20%',
+      value: clvKPIs ? formatCurrency(clvKPIs.top20PercentCLV) : 'R$ 0,00',
+      tooltip: 'CLV médio dos 20% clientes mais valiosos'
+    },
+    {
+      title: 'Clientes em Risco',
+      value: clvKPIs ? formatNumber(clvKPIs.churnRiskCustomers) : '0',
+      tooltip: `Clientes com score de risco > 60% baseado nos parâmetros: quase inativos (${almostInactiveMonths} meses) e inativos (${inactiveMonths} meses)`
+    },
+    {
+      title: 'Freq. Média de Compra',
+      value: clvKPIs ? `${clvKPIs.averagePurchaseFrequency.toFixed(2)}/mês` : '0,00/mês',
+      tooltip: 'Frequência média de pedidos por mês'
     }
   ];
 
@@ -493,15 +548,20 @@ export default function CustomerDashboard() {
           onAlmostInactiveMonthsChange={setAlmostInactiveMonths}
           onApplyFilters={handleApplyFilters}
           lastPurchaseDate={lastPurchaseDate}
+          rawData={rawData}
+          selectedCustomerTypes={selectedCustomerTypes}
+          onCustomerTypesChange={setSelectedCustomerTypes}
         />
 
-        {/* KPIs */}
+        {/* KPIs Básicos */}
+        <section className={vendasStyles.charts}>
         <KPISection 
-          kpis={kpiCards}
+            kpis={basicKpiCards}
           formatK={formatK}
           formatNumber={formatNumber}
           formatVariation={formatVariation}
         />
+        </section>
 
         {/* Gráfico de Engajamento */}
         <section className={vendasStyles.charts}>
@@ -512,35 +572,91 @@ export default function CustomerDashboard() {
             />
           </div>
         </section>
+
+        {/* KPIs CLV */}
+        <section className={vendasStyles.charts}>
+          <KPISection 
+            kpis={clvKpiCards}
+            formatK={formatK}
+            formatNumber={formatNumber}
+            formatVariation={formatVariation}
+          />
+        </section>
+
+        {/* Distribuição CLV */}
+        <section className={vendasStyles.charts}>
+          <div className={vendasStyles.card}>
+            <CLVDistributionChart
+              data={clvDistribution}
+              onBarClick={(bucket) => {
+              // Filtrar clientes na faixa de CLV selecionada
+              const customersInRange = clvData.filter(customer => 
+                customer.clvHistorical >= bucket.min && customer.clvHistorical < bucket.max
+              );
+              
+              const modalData: UnifiedModalData[] = customersInRange.map(customer => ({
+                customer: customer.customer,
+                customerType: customer.customerType ?? 'Sem Categoria',
+                totalValue: customer.totalValue,
+                totalOrders: customer.totalOrders,
+                averageTicket: customer.averageTicket,
+                purchaseFrequency: customer.purchaseFrequency,
+                customerLifespan: customer.customerLifespan,
+                clvRiskScore: customer.clvRiskScore,
+                firstPurchase: customer.firstPurchase,
+                lastPurchase: customer.lastPurchase
+              }));
+
+              setModalTitle(`${bucket.range} (${bucket.count} clientes)`);
+              setModalData(modalData);
+              setShowModal(true);
+            }}
+            />
+          </div>
+        </section>
+
+
+        {/* Análise por Segmento CLV */}
+        <section className={vendasStyles.charts}>
+          <div className={vendasStyles.card}>
+            <CLVSegmentAnalysis segmentAnalysis={segmentAnalysis} />
+          </div>
+        </section>
+
       </main>
 
       {/* Modal de detalhes dos clientes */}
-        <DetailsModal
-          show={showModal}
-          title={modalTitle}
-          rows={modalData}
-          columns={(() => {
-            // Calcular os meses para exibir no cabeçalho
-            const now = new Date();
-            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-            const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-            const lastMonthYear = `${monthNames[lastMonth.getMonth()]}/${lastMonth.getFullYear().toString().slice(-2)}`;
-            const currentMonthYear = `${monthNames[currentMonth.getMonth()]}/${currentMonth.getFullYear().toString().slice(-2)}`;
-            
-            return [
-              { key: 'customer', label: 'Cliente', sortable: true },
-              { key: 'orders', label: 'Número de Pedidos', sortable: true, formatter: (v: unknown) => formatNumber(v as number) },
-              { key: 'firstOrder', label: 'Data do Primeiro Pedido', sortable: true, formatter: (v: unknown) => (v as Date).toLocaleDateString('pt-BR') },
-              { key: 'lastOrder', label: 'Data do Último Pedido', sortable: true, formatter: (v: unknown) => (v as Date).toLocaleDateString('pt-BR') },
-              { key: 'totalRevenue', label: 'Faturamento Total', sortable: true, formatter: (v: unknown) => formatCurrency(v as number) },
-              { key: 'lastMonthRevenue', label: `Faturamento ${lastMonthYear}`, sortable: true, formatter: (v: unknown) => formatCurrency(v as number) },
-              { key: 'currentMonthRevenue', label: `Faturamento ${currentMonthYear}`, sortable: true, formatter: (v: unknown) => formatCurrency(v as number) }
-            ];
-          })()}
-          closeAllModals={() => setShowModal(false)}
-          onExport={handleExportToExcel}
-        />
+      <UnifiedDetailsModal
+        show={showModal}
+        title={modalTitle}
+        rows={modalData}
+        columns={(() => {
+          // Verificar se os dados contêm informações CLV
+          const hasCLVData = modalData.length > 0 && 'clvRiskScore' in modalData[0];
+          
+          const baseColumns = [
+            { key: 'customer', label: 'Cliente', sortable: true, type: 'text' as const },
+            { key: 'customerType', label: 'Tipo de Cliente', sortable: true, type: 'text' as const },
+            { key: 'totalOrders', label: 'Número de Pedidos', sortable: true, type: 'number' as const },
+            { key: 'firstPurchase', label: 'Data do Primeiro Pedido', sortable: true, type: 'date' as const },
+            { key: 'lastPurchase', label: 'Data do Último Pedido', sortable: true, type: 'date' as const },
+            { key: 'totalValue', label: 'Faturamento Total', sortable: true, type: 'currency' as const }
+          ];
+
+          const clvColumns = hasCLVData ? [
+            { key: 'averageTicket', label: 'Ticket Médio', sortable: true, type: 'currency' as const },
+            { key: 'purchaseFrequency', label: 'Frequência/Mês', sortable: true, type: 'number' as const },
+            { key: 'customerLifespan', label: 'Vida do Cliente (meses)', sortable: true, type: 'number' as const },
+            { key: 'clvRiskScore', label: 'Score de Risco (%)', sortable: true, type: 'number' as const }
+          ] : [];
+
+          return [...baseColumns, ...clvColumns] as ColumnConfig[];
+        })()}
+        closeAllModals={() => setShowModal(false)}
+        onExport={handleExportToExcel}
+        defaultSortKey="totalValue"
+        defaultSortDirection="desc"
+      />
     </div>
   );
 }

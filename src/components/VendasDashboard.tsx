@@ -21,7 +21,7 @@ import { TopProductsChart } from '@/features/sales/components/TopProductsChart';
 import { CustomerTypesChart } from '@/features/sales/components/CustomerTypesChart';
 import { ProductsByClientTable } from '@/features/sales/components/ProductsByClientTable';
 import { ClientsByProductTable } from '@/features/sales/components/ClientsByProductTable';
-import { DetailsModal } from '@/features/sales/components/DetailsModal';
+import { UnifiedDetailsModal, type UnifiedModalData, type ColumnConfig } from '@/features/shared/components/UnifiedDetailsModal';
 
 import vendasStyles from '@/styles/vendas.module.css';
 import loadingStyles from '@/styles/loading.module.css';
@@ -53,15 +53,17 @@ export default function VendasDashboard() {
   const [productSearch, setProductSearch] = useState('');
   const [customerTypeSearch, setCustomerTypeSearch] = useState('');
   const [salesSearch, setSalesSearch] = useState('');
+  const [topClientsCount, setTopClientsCount] = useState<5 | 10 | 25>(5);
 
   // Estados da UI
   const [showPeriodPanel, setShowPeriodPanel] = useState(false);
   const [showClientPanel, setShowClientPanel] = useState(false);
   const [showProductPanel, setShowProductPanel] = useState(false);
   const [showCustomerTypePanel, setShowCustomerTypePanel] = useState(false);
+  const [showTopClientsDropdown, setShowTopClientsDropdown] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
-  const [modalData, setModalData] = useState<ModalData[]>([]);
+  const [modalData, setModalData] = useState<UnifiedModalData[]>([]);
   
   // Drilldown substituído por selects dedicados
   const [selectCliente, setSelectCliente] = useState<string>('');
@@ -110,6 +112,7 @@ export default function VendasDashboard() {
     quaseInativoMeses: 1,
     inativoMeses: 2,
     maxPeriodoMeses: 6,
+    topClientsCount,
   });
 
   // Usar estados do hook
@@ -1412,13 +1415,14 @@ export default function VendasDashboard() {
     setShowClientPanel(false);
     setShowProductPanel(false);
     setShowCustomerTypePanel(false);
+    setShowTopClientsDropdown(false);
     setShowClientPicker(false);
     setShowProductPicker(false);
     setShowModal(false);
   };
 
   // Verificar se algum modal está aberto
-  const isAnyModalOpen = showPeriodPanel || showClientPanel || showProductPanel || showCustomerTypePanel || showClientPicker || showProductPicker || showModal;
+  const isAnyModalOpen = showPeriodPanel || showClientPanel || showProductPanel || showCustomerTypePanel || showTopClientsDropdown || showClientPicker || showProductPicker || showModal;
 
   // Effect para fechar modais ao clicar fora
   useEffect(() => {
@@ -1629,6 +1633,43 @@ export default function VendasDashboard() {
     } else {
       return `${value >= 0 ? '+' : ''}${Math.round(value)}%`;
     }
+  };
+
+  // Configurar colunas do modal baseado no tipo de dados
+  const getModalColumns = (): ColumnConfig[] => {
+    if (modalData.length === 0) return [];
+    
+    // Verificar se é modal de produtos ou clientes
+    const hasProduct = 'produto' in modalData[0];
+    const hasClient = 'cliente' in modalData[0];
+    
+    if (hasProduct) {
+      // Modal de produtos
+      return [
+        { key: 'produto', label: 'Produto', sortable: true, type: 'text' as const },
+        { key: 'unidades', label: 'Unidades', sortable: true, type: 'number' as const },
+        ...(meta?.hasPackages ? [{ key: 'pacotes', label: 'Pacotes', sortable: true, type: 'number' as const }] : []),
+        ...(meta?.hasBoxes ? [{ key: 'caixas', label: 'Caixas', sortable: true, type: 'number' as const }] : []),
+        { key: 'valor', label: 'Valor', sortable: true, type: 'currency' as const },
+        { key: 'mb', label: 'Margem Bruta', sortable: true, type: 'percentage' as const },
+        { key: meta?.hasPackages ? 'pmp' : 'pmv', label: meta?.hasPackages ? 'PMP' : 'PMV', sortable: true, type: 'currency' as const },
+        { key: meta?.hasPackages ? 'cmp' : 'cmv', label: meta?.hasPackages ? 'CMP' : 'CMV', sortable: true, type: 'currency' as const }
+      ];
+    } else if (hasClient) {
+      // Modal de clientes
+      return [
+        { key: 'cliente', label: 'Cliente', sortable: true, type: 'text' as const },
+        { key: 'unidades', label: 'Unidades', sortable: true, type: 'number' as const },
+        ...(meta?.hasPackages ? [{ key: 'pacotes', label: 'Pacotes', sortable: true, type: 'number' as const }] : []),
+        ...(meta?.hasBoxes ? [{ key: 'caixas', label: 'Caixas', sortable: true, type: 'number' as const }] : []),
+        { key: 'valor', label: 'Valor', sortable: true, type: 'currency' as const },
+        { key: 'mb', label: 'Margem Bruta', sortable: true, type: 'percentage' as const },
+        { key: meta?.hasPackages ? 'pmp' : 'pmv', label: meta?.hasPackages ? 'PMP' : 'PMV', sortable: true, type: 'currency' as const },
+        { key: meta?.hasPackages ? 'cmp' : 'cmv', label: meta?.hasPackages ? 'CMP' : 'CMV', sortable: true, type: 'currency' as const }
+      ];
+    }
+    
+    return [];
   };
 
   return (
@@ -2295,7 +2336,45 @@ export default function VendasDashboard() {
           {/* Seção de Variação por Cliente - 2/3 */}
           <section className={vendasStyles['variation-section']}>
             <div className={`${vendasStyles.card} ${vendasStyles.span2}`}>
-              <h3>{getVariationTitle()}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <h3>{getVariationTitle()}</h3>
+                <div style={{ position: 'relative', display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button 
+                    className={vendasStyles.chip} 
+                    data-filter-button 
+                    onClick={() => { 
+                      setShowTopClientsDropdown(!showTopClientsDropdown); 
+                    }}
+                  >
+                    Top {topClientsCount}
+                  </button>
+                  {showTopClientsDropdown && (
+                    <>
+                      <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+                      <div className={vendasStyles['period-panel']} style={{ right: 0, bottom: 54, top: 'auto', minWidth: '120px' }} data-modal-content>
+                        <div className={vendasStyles['table-scroll']} style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                          <ul style={{ listStyle: 'none', margin: 0, padding: '6px 8px', display: 'grid', gap: '6px' }}>
+                            {[5, 10, 25].map(count => (
+                              <li key={count}>
+                                <button
+                                  className={`${vendasStyles.chip} ${topClientsCount === count ? vendasStyles.active : ''}`}
+                                  style={{ width: '100%', justifyContent: 'flex-start' }}
+                                  onClick={() => {
+                                    setTopClientsCount(count as 5 | 10 | 25);
+                                    setShowTopClientsDropdown(false);
+                                  }}
+                                >
+                                  Top {count}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
               <div className={vendasStyles['rank-grid']}>
                 <div>
                   <div className={vendasStyles['kpi-label']}>Quem mais cresceu</div>
@@ -2372,13 +2451,14 @@ export default function VendasDashboard() {
         </div>
       </main>
 
-      <DetailsModal
+      <UnifiedDetailsModal
         show={showModal}
         title={modalTitle}
         rows={modalData}
-        meta={meta}
-        formatK={formatK}
+        columns={getModalColumns()}
         closeAllModals={closeAllModals}
+        defaultSortKey="valor"
+        defaultSortDirection="desc"
       />
 
 

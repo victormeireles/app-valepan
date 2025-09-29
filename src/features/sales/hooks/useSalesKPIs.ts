@@ -15,7 +15,8 @@ export function computeSalesKPIs(
   const previousData = allData.filter(row => row.data >= prevStartDate && row.data <= prevEndDate);
 
   const faturamentoAtual = currentData.reduce((sum, row) => sum + row.valorTotal, 0);
-  const pedidosAtual = currentData.length;
+  // Contar pedidos distintos usando o campo 'pedido'
+  const pedidosAtual = new Set(currentData.map(row => row.pedido).filter(Boolean)).size;
   const cmvAtual = currentData.reduce((sum, row) => sum + (row.custoTotal ?? 0), 0);
   const margemBrutaAtual = faturamentoAtual > 0 && cmvAtual > 0 ? (1 - (cmvAtual / faturamentoAtual)) * 100 : (faturamentoAtual > 0 ? 100 : 0);
   const clientesUnicosAtual = new Set(currentData.map(row => row.cliente)).size;
@@ -25,7 +26,8 @@ export function computeSalesKPIs(
   const caixasAtual = currentData.reduce((sum, row) => sum + (row.caixas ?? 0), 0);
 
   const faturamentoAnterior = previousData.reduce((sum, row) => sum + row.valorTotal, 0);
-  const pedidosAnterior = previousData.length;
+  // Contar pedidos distintos usando o campo 'pedido'
+  const pedidosAnterior = new Set(previousData.map(row => row.pedido).filter(Boolean)).size;
   const cmvAnterior = previousData.reduce((sum, row) => sum + (row.custoTotal ?? 0), 0);
   const margemBrutaAnterior = faturamentoAnterior > 0 && cmvAnterior > 0 ? (1 - (cmvAnterior / faturamentoAnterior)) * 100 : (faturamentoAnterior > 0 ? 100 : 0);
   const clientesUnicosAnterior = new Set(previousData.map(row => row.cliente)).size;

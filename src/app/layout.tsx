@@ -97,7 +97,7 @@ export default function RootLayout({
           `
         }} />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased css-loaded`}>
         <div className="initial-loading" id="initial-loading">
           <div className="initial-spinner"></div>
         </div>

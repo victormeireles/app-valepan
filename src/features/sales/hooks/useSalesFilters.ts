@@ -13,6 +13,7 @@ export type UseSalesFiltersArgs = {
   quaseInativoMeses: number;
   inativoMeses: number;
   maxPeriodoMeses: number;
+  topClientsCount?: number;
 };
 
 export type UseSalesFiltersState = {
@@ -29,7 +30,7 @@ export type UseSalesFiltersState = {
 };
 
 export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState {
-  const { rawData, meta, periodStart, periodEnd, quaseInativoMeses, inativoMeses, maxPeriodoMeses } = args;
+  const { rawData, meta, periodStart, periodEnd, quaseInativoMeses, inativoMeses, maxPeriodoMeses, topClientsCount } = args;
 
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -54,7 +55,12 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
 
     // período anterior usando função centralizada
     const { prevStartDate, prevEndDate } = previousPeriodFromRange(startDate, endDate);
-    const previousData = rawData.filter(row => isDateInRangeISO(row.data, prevStartDate, prevEndDate));
+    
+    // Aplicar os mesmos filtros de cliente/produto/tipo no período anterior
+    let previousData = rawData.filter(row => isDateInRangeISO(row.data, prevStartDate, prevEndDate));
+    if (clients.length > 0) previousData = previousData.filter(r => clients.includes(r.cliente));
+    if (products.length > 0) previousData = previousData.filter(r => r.produto && products.includes(r.produto));
+    if (customerTypes.length > 0) previousData = previousData.filter(r => r.tipoCliente && customerTypes.includes(r.tipoCliente));
 
     setKpis(computeSalesKPIs(f, rawData, startDate, endDate));
     setChartData(
@@ -64,7 +70,7 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
         previousData,
         startDate,
         endDate,
-        { meta, quaseInativoMeses, inativoMeses, maxPeriodoMeses }
+        { meta, quaseInativoMeses, inativoMeses, maxPeriodoMeses, topClientsCount }
       )
     );
   };
@@ -74,7 +80,7 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
       apply(selectedClients, selectedProducts, selectedCustomerTypes);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawData, meta, periodStart, periodEnd, selectedClients, selectedProducts, selectedCustomerTypes, quaseInativoMeses, inativoMeses, maxPeriodoMeses]);
+  }, [rawData, meta, periodStart, periodEnd, selectedClients, selectedProducts, selectedCustomerTypes, quaseInativoMeses, inativoMeses, maxPeriodoMeses, topClientsCount]);
 
   return {
     filteredData,

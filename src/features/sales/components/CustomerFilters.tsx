@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import vendasStyles from '@/styles/vendas.module.css';
+import { CustomerRow } from '@/lib/sheets';
 
 interface CustomerFiltersProps {
   newCustomerMonths: number;
@@ -12,6 +13,10 @@ interface CustomerFiltersProps {
   onAlmostInactiveMonthsChange: (value: number) => void;
   onApplyFilters: () => void;
   lastPurchaseDate: Date | null;
+  // Novos props para filtro de tipo de cliente
+  rawData: CustomerRow[];
+  selectedCustomerTypes: string[];
+  onCustomerTypesChange: (types: string[]) => void;
 }
 
 export default function CustomerFilters({
@@ -23,13 +28,55 @@ export default function CustomerFilters({
   onAlmostInactiveMonthsChange,
   onApplyFilters,
   lastPurchaseDate,
+  rawData,
+  selectedCustomerTypes,
+  onCustomerTypesChange,
 }: CustomerFiltersProps) {
   const [showFilters, setShowFilters] = useState(false);
+  const [customerTypeSearch, setCustomerTypeSearch] = useState('');
+  const [showCustomerTypeDropdown, setShowCustomerTypeDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Extrair tipos de cliente únicos dos dados
+  const availableCustomerTypes = useMemo(() => {
+    const types = new Set<string>();
+    rawData.forEach(row => {
+      if (row.customer_type && row.customer_type.trim()) {
+        types.add(row.customer_type.trim());
+      }
+    });
+    return Array.from(types).sort();
+  }, [rawData]);
+
+  // Filtrar tipos de cliente baseado na busca
+  const filteredCustomerTypes = availableCustomerTypes.filter(type =>
+    type.toLowerCase().includes(customerTypeSearch.toLowerCase())
+  );
+
+  // Fechar dropdown quando clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowCustomerTypeDropdown(false);
+      }
+    };
+
+    if (showCustomerTypeDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCustomerTypeDropdown]);
 
   const resetFilters = () => {
     onNewCustomerMonthsChange(1);
     onInactiveMonthsChange(2);
     onAlmostInactiveMonthsChange(1);
+    onCustomerTypesChange([]);
+    setCustomerTypeSearch('');
+    setShowCustomerTypeDropdown(false);
   };
 
   const formatLastPurchaseDate = (date: Date | null) => {
@@ -124,6 +171,77 @@ export default function CustomerFilters({
                 Clientes sem pedidos há mais de X meses são considerados quase inativos
               </p>
             </div>
+
+            {/* Filtro: Tipos de Cliente */}
+            {availableCustomerTypes.length > 0 && (
+              <div className={vendasStyles['filter-group']}>
+                <label className={vendasStyles['filter-label']}>
+                  Tipos de Cliente
+                </label>
+                <div className={vendasStyles['filter-dropdown-container']} ref={dropdownRef}>
+                  <div 
+                    className={vendasStyles['filter-dropdown-trigger']}
+                    onClick={() => setShowCustomerTypeDropdown(!showCustomerTypeDropdown)}
+                  >
+                    <span className={vendasStyles['filter-dropdown-text']}>
+                      {selectedCustomerTypes.length === 0 
+                        ? 'Selecionar tipos...' 
+                        : selectedCustomerTypes.length === 1
+                          ? selectedCustomerTypes[0]
+                          : `${selectedCustomerTypes.length} tipos selecionados`
+                      }
+                    </span>
+                    <span className={vendasStyles['filter-dropdown-arrow']}>
+                      {showCustomerTypeDropdown ? '▲' : '▼'}
+                    </span>
+                  </div>
+                  
+                  {showCustomerTypeDropdown && (
+                    <div className={vendasStyles['filter-dropdown-menu']}>
+                      <div className={vendasStyles['filter-dropdown-search']}>
+                        <input
+                          type="text"
+                          placeholder="Buscar tipo..."
+                          value={customerTypeSearch}
+                          onChange={(e) => setCustomerTypeSearch(e.target.value)}
+                          className={vendasStyles['filter-dropdown-search-input']}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      <div className={vendasStyles['filter-dropdown-options']}>
+                        {filteredCustomerTypes.map(type => (
+                          <label key={type} className={vendasStyles['filter-dropdown-option']}>
+                            <input
+                              type="checkbox"
+                              checked={selectedCustomerTypes.includes(type)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  onCustomerTypesChange([...selectedCustomerTypes, type]);
+                                } else {
+                                  onCustomerTypesChange(selectedCustomerTypes.filter(t => t !== type));
+                                }
+                              }}
+                              className={vendasStyles['filter-dropdown-checkbox']}
+                            />
+                            <span className={vendasStyles['filter-dropdown-option-text']}>
+                              {type}
+                            </span>
+                          </label>
+                        ))}
+                        {filteredCustomerTypes.length === 0 && (
+                          <div className={vendasStyles['filter-dropdown-empty']}>
+                            Nenhum tipo encontrado
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <p className={vendasStyles['filter-description']}>
+                  Selecione os tipos de cliente para filtrar os dados
+                </p>
+              </div>
+            )}
           </div>
 
           <div className={vendasStyles['filters-actions']}>
