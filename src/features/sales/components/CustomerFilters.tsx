@@ -11,6 +11,7 @@ interface CustomerFiltersProps {
   onInactiveMonthsChange: (value: number) => void;
   onAlmostInactiveMonthsChange: (value: number) => void;
   onApplyFilters: () => void;
+  lastPurchaseDate: Date | null;
 }
 
 export default function CustomerFilters({
@@ -21,6 +22,7 @@ export default function CustomerFilters({
   onInactiveMonthsChange,
   onAlmostInactiveMonthsChange,
   onApplyFilters,
+  lastPurchaseDate,
 }: CustomerFiltersProps) {
   const [showFilters, setShowFilters] = useState(false);
 
@@ -28,6 +30,15 @@ export default function CustomerFilters({
     onNewCustomerMonthsChange(1);
     onInactiveMonthsChange(2);
     onAlmostInactiveMonthsChange(1);
+  };
+
+  const formatLastPurchaseDate = (date: Date | null) => {
+    if (!date) return '';
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
   };
 
   return (
@@ -38,6 +49,11 @@ export default function CustomerFilters({
       >
         <span className={vendasStyles['filter-icon']}>⚙️</span>
         Filtros de Clientes
+        {lastPurchaseDate && (
+          <span className={vendasStyles['filter-date-info']}>
+            - Vendas até {formatLastPurchaseDate(lastPurchaseDate)}
+          </span>
+        )}
         <span className={vendasStyles['filter-arrow']}>
           {showFilters ? '▲' : '▼'}
         </span>

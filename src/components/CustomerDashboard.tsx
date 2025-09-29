@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { useTenant } from '@/hooks/useTenant';
@@ -17,9 +17,10 @@ import loadingStyles from '@/styles/loading.module.css';
 
 export type CustomerKPIs = {
   totalCustomers: number;
-  activeCustomers: number;
-  retentionRate: number;
-  averageMonthlyRevenue: number;
+  recurringCustomers: number; // ativos + quase inativos
+  activeCustomers: number; // muito ativos (mesma regra do gráfico)
+  retentionRate: number; // ativos / recorrentes
+  averageMonthlyRevenue: number; // dos clientes recorrentes
 };
 
 export type CustomerEngagement = {
@@ -42,6 +43,12 @@ export default function CustomerDashboard() {
   // Hook para exportação Excel
   const { exportToExcel } = useExcelExport();
   
+  // Calcular data do último pedido usando useMemo para otimização
+  const lastPurchaseDate = useMemo(() => {
+    if (rawData.length === 0) return null;
+    return new Date(Math.max(...rawData.map(row => row.last_purchase ? new Date(row.last_purchase).getTime() : 0)));
+  }, [rawData]);
+  
   // Estados dos filtros (valores padrão conforme PRD)
   const [newCustomerMonths, setNewCustomerMonths] = useState(1);
   const [inactiveMonths, setInactiveMonths] = useState(2);
@@ -61,8 +68,10 @@ export default function CustomerDashboard() {
   }
 
   const calculateKPIs = useCallback((data: CustomerRow[]) => {
-    const now = new Date();
-    const activeThreshold = new Date(now.getTime() - (inactiveMonths * 30 * 24 * 60 * 60 * 1000));
+    // Usar a data do último pedido como referência em vez da data atual
+    const baseDate = lastPurchaseDate || new Date();
+    const activeThreshold = new Date(baseDate.getTime() - (inactiveMonths * 30 * 24 * 60 * 60 * 1000));
+    const almostInactiveThreshold = new Date(baseDate.getTime() - (almostInactiveMonths * 30 * 24 * 60 * 60 * 1000));
     
     // Agrupar dados por cliente para calcular first_purchase e last_purchase
     const customerData = new Map<string, {
@@ -108,33 +117,47 @@ export default function CustomerDashboard() {
     const customers = Array.from(customerData.values());
     const totalCustomers = customers.length;
     
-    // Clientes ativos (com pedidos nos últimos X meses)
-    const activeCustomers = customers.filter(c => c.lastPurchase >= activeThreshold).length;
+    // Clientes muito ativos (mesma regra do gráfico - quaseInactiveMonths)
+    const activeCustomers = customers.filter(c => c.lastPurchase >= almostInactiveThreshold).length;
     
-    // Taxa de retenção
-    const retentionRate = totalCustomers > 0 ? (activeCustomers / totalCustomers) * 100 : 0;
+    // Clientes quase inativos (entre almostInactiveMonths e inactiveMonths)
+    const almostInactiveCustomers = customers.filter(c => {
+      const lastPurchase = c.lastPurchase;
+      return lastPurchase < almostInactiveThreshold && lastPurchase >= activeThreshold;
+    }).length;
     
-    // Faturamento dos clientes ativos
-    const activeCustomerRevenue = customers
-      .filter(c => c.lastPurchase >= activeThreshold)
+    // Clientes recorrentes (ativos + quase inativos)
+    const recurringCustomers = activeCustomers + almostInactiveCustomers;
+    
+    // Taxa de retenção (ativos / recorrentes)
+    const retentionRate = recurringCustomers > 0 ? (activeCustomers / recurringCustomers) * 100 : 0;
+    
+    // Faturamento dos clientes recorrentes
+    const recurringCustomerRevenue = customers
+      .filter(c => {
+        const lastPurchase = c.lastPurchase;
+        return lastPurchase >= activeThreshold; // ativos + quase inativos
+      })
       .reduce((sum, c) => sum + c.totalValue, 0);
     
-    // Faturamento médio mensal por cliente ativo
-    const averageMonthlyRevenue = activeCustomers > 0 ? activeCustomerRevenue / activeCustomers : 0;
+    // Faturamento médio mensal por cliente recorrente
+    const averageMonthlyRevenue = recurringCustomers > 0 ? recurringCustomerRevenue / recurringCustomers : 0;
     
     setKpis({
       totalCustomers,
+      recurringCustomers,
       activeCustomers,
       retentionRate,
       averageMonthlyRevenue
     });
-  }, [inactiveMonths]);
+  }, [inactiveMonths, almostInactiveMonths, lastPurchaseDate]);
 
   const calculateEngagement = useCallback((data: CustomerRow[]) => {
-    const now = new Date();
-    const newThreshold = new Date(now.getTime() - (newCustomerMonths * 30 * 24 * 60 * 60 * 1000));
-    const almostInactiveThreshold = new Date(now.getTime() - (almostInactiveMonths * 30 * 24 * 60 * 60 * 1000));
-    const inactiveThreshold = new Date(now.getTime() - (inactiveMonths * 30 * 24 * 60 * 60 * 1000));
+    // Usar a data do último pedido como referência em vez da data atual
+    const baseDate = lastPurchaseDate || new Date();
+    const newThreshold = new Date(baseDate.getTime() - (newCustomerMonths * 30 * 24 * 60 * 60 * 1000));
+    const almostInactiveThreshold = new Date(baseDate.getTime() - (almostInactiveMonths * 30 * 24 * 60 * 60 * 1000));
+    const inactiveThreshold = new Date(baseDate.getTime() - (inactiveMonths * 30 * 24 * 60 * 60 * 1000));
     
     // Agrupar dados por cliente (mesma lógica do calculateKPIs)
     const customerData = new Map<string, {
@@ -190,7 +213,7 @@ export default function CustomerDashboard() {
       almostInactiveCustomers,
       inactiveCustomers
     });
-  }, [newCustomerMonths, almostInactiveMonths, inactiveMonths]);
+  }, [newCustomerMonths, almostInactiveMonths, inactiveMonths, lastPurchaseDate]);
 
   // Calcular KPIs quando os dados mudarem
   useEffect(() => {
@@ -234,18 +257,19 @@ export default function CustomerDashboard() {
   const getCustomersByCategory = (category: string) => {
     if (!rawData.length) return [];
 
-    const now = new Date();
-    const newThreshold = new Date(now.getTime() - (newCustomerMonths * 30 * 24 * 60 * 60 * 1000));
-    const almostInactiveThreshold = new Date(now.getTime() - (almostInactiveMonths * 30 * 24 * 60 * 60 * 1000));
-    const inactiveThreshold = new Date(now.getTime() - (inactiveMonths * 30 * 24 * 60 * 60 * 1000));
+    // Usar a data do último pedido como referência em vez da data atual
+    const baseDate = lastPurchaseDate || new Date();
+    const newThreshold = new Date(baseDate.getTime() - (newCustomerMonths * 30 * 24 * 60 * 60 * 1000));
+    const almostInactiveThreshold = new Date(baseDate.getTime() - (almostInactiveMonths * 30 * 24 * 60 * 60 * 1000));
+    const inactiveThreshold = new Date(baseDate.getTime() - (inactiveMonths * 30 * 24 * 60 * 60 * 1000));
     
-    // Data de início do último mês
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    // Data de início do último mês baseado na data de referência
+    const lastMonthStart = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(baseDate.getFullYear(), baseDate.getMonth(), 0);
     
-    // Data de início do mês atual
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    // Data de início do mês atual baseado na data de referência
+    const currentMonthStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+    const currentMonthEnd = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
 
     // Agrupar dados por cliente
     const customerData = new Map<string, {
@@ -335,11 +359,7 @@ export default function CustomerDashboard() {
       currentMonthRevenue: customer.currentMonthValue,
     }));
 
-    // Calcular o mês anterior para exibir no cabeçalho
-    const now = new Date();
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-    const monthYear = `${monthNames[lastMonth.getMonth()]}/${lastMonth.getFullYear().toString().slice(-2)}`;
+    // Calcular o mês anterior para exibir no cabeçalho baseado na data de referência
 
     setModalTitle(`${category} (${count} clientes)`);
     setModalData(modalData);
@@ -348,10 +368,10 @@ export default function CustomerDashboard() {
 
   // Função para exportar dados para Excel
   const handleExportToExcel = () => {
-    // Calcular os meses para exibir no cabeçalho
-    const now = new Date();
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    // Calcular os meses para exibir no cabeçalho baseado na data de referência
+    const baseDate = lastPurchaseDate || new Date();
+    const lastMonth = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1);
+    const currentMonth = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
     const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
     const lastMonthYear = `${monthNames[lastMonth.getMonth()]}/${lastMonth.getFullYear().toString().slice(-2)}`;
     const currentMonthYear = `${monthNames[currentMonth.getMonth()]}/${currentMonth.getFullYear().toString().slice(-2)}`;
@@ -407,6 +427,15 @@ export default function CustomerDashboard() {
     );
   }
 
+  // Função para formatar período baseado na data de referência
+  const formatPeriod = (months: number) => {
+    if (!lastPurchaseDate) return `${months} meses`;
+    const baseDate = lastPurchaseDate;
+    const startDate = new Date(baseDate.getTime() - (months * 30 * 24 * 60 * 60 * 1000));
+    const endDate = baseDate;
+    return `${startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
+  };
+
   const kpiCards: KPICard[] = [
     {
       title: 'Total de Clientes',
@@ -414,19 +443,24 @@ export default function CustomerDashboard() {
       tooltip: 'Número total de clientes únicos na base'
     },
     {
+      title: 'Clientes Recorrentes',
+      value: kpis ? formatNumber(kpis.recurringCustomers) : '0',
+      tooltip: `Clientes ativos + quase inativos (período: ${formatPeriod(inactiveMonths)})`
+    },
+    {
       title: 'Clientes Ativos',
       value: kpis ? formatNumber(kpis.activeCustomers) : '0',
-      tooltip: `Clientes com pedidos nos últimos ${inactiveMonths} meses`
+      tooltip: `Clientes com pedidos nos últimos ${almostInactiveMonths} meses (período: ${formatPeriod(almostInactiveMonths)})`
     },
     {
       title: 'Taxa de Retenção',
       value: kpis ? `${kpis.retentionRate.toFixed(1)}%` : '0.0%',
-      tooltip: 'Percentual de clientes ativos em relação ao total'
+      tooltip: 'Percentual de clientes ativos em relação aos clientes recorrentes'
     },
     {
-      title: 'Faturamento Médio Mensal',
+      title: 'Faturamento Médio Mensal (Recorrentes)',
       value: kpis ? formatCurrency(kpis.averageMonthlyRevenue) : 'R$ 0,00',
-      tooltip: 'Faturamento médio por cliente ativo'
+      tooltip: `Faturamento médio por cliente recorrente (período: ${formatPeriod(inactiveMonths)})`
     }
   ];
 
@@ -458,6 +492,7 @@ export default function CustomerDashboard() {
           onInactiveMonthsChange={setInactiveMonths}
           onAlmostInactiveMonthsChange={setAlmostInactiveMonths}
           onApplyFilters={handleApplyFilters}
+          lastPurchaseDate={lastPurchaseDate}
         />
 
         {/* KPIs */}
@@ -503,7 +538,6 @@ export default function CustomerDashboard() {
               { key: 'currentMonthRevenue', label: `Faturamento ${currentMonthYear}`, sortable: true, formatter: (v: unknown) => formatCurrency(v as number) }
             ];
           })()}
-          formatK={formatK}
           closeAllModals={() => setShowModal(false)}
           onExport={handleExportToExcel}
         />

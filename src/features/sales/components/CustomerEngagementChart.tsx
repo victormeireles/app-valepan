@@ -2,6 +2,7 @@
 
 import { useRef, useEffect } from 'react';
 import { Chart, registerables } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 interface CustomerEngagementChartProps {
   engagementData: {
@@ -24,7 +25,7 @@ export default function CustomerEngagementChart({
     if (!chartRef.current || !engagementData) return;
 
     // Registrar componentes do Chart.js
-    Chart.register(...registerables);
+    Chart.register(...registerables, ChartDataLabels);
 
     // Destruir gráfico anterior se existir
     if (chartInstanceRef.current) {
@@ -95,6 +96,20 @@ export default function CustomerEngagementChart({
               },
             },
           },
+          datalabels: {
+            display: true,
+            color: '#ffffff',
+            font: {
+              size: 12,
+              weight: 'bold' as const,
+            },
+            formatter: (value: number) => {
+              return value.toString();
+            },
+            anchor: 'end',
+            align: 'top',
+            offset: 4,
+          },
         },
         scales: {
           x: {
@@ -111,6 +126,7 @@ export default function CustomerEngagementChart({
           },
           y: {
             beginAtZero: true,
+            grace: '15%', // Adiciona 15% de espaço extra no topo do gráfico
             grid: {
               color: 'rgba(255, 255, 255, 0.1)',
             },
@@ -173,25 +189,6 @@ export default function CustomerEngagementChart({
         <canvas ref={chartRef} />
       </div>
 
-      {/* Legenda personalizada */}
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="flex items-center gap-2 text-sm">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#10b981' }}></div>
-          <span className="text-gray-300">Clientes Novos</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#3b82f6' }}></div>
-          <span className="text-gray-300">Muito Ativos</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#f59e0b' }}></div>
-          <span className="text-gray-300">Quase Inativos</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#ef4444' }}></div>
-          <span className="text-gray-300">Inativos</span>
-        </div>
-      </div>
     </div>
   );
 }

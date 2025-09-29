@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTableSort } from '@/features/shared/hooks/useTableSort';
 import vendasStyles from '@/styles/vendas.module.css';
 
 export type ModalData = Record<string, unknown>;
@@ -13,13 +14,16 @@ type Props = {
     sortable?: boolean;
     formatter?: (value: unknown) => string;
   }>;
-  formatK: (n: number) => string;
   closeAllModals: () => void;
   onExport?: () => void;
 };
 
-export function DetailsModal({ show, title, rows, columns, formatK, closeAllModals, onExport }: Props) {
+export function DetailsModal({ show, title, rows, columns, closeAllModals, onExport }: Props) {
   const [isExporting, setIsExporting] = useState(false);
+  
+  // Configurar ordenação padrão baseada na primeira coluna numérica encontrada
+  const defaultSortColumn = columns.find(col => col.sortable && typeof rows[0]?.[col.key] === 'number')?.key || columns[0]?.key;
+  const { sortedData, handleSort, getSortIcon } = useTableSort(rows, { key: defaultSortColumn, direction: 'desc' });
 
   const handleExport = async () => {
     if (!onExport) return;
@@ -62,16 +66,23 @@ export function DetailsModal({ show, title, rows, columns, formatK, closeAllModa
               <thead>
                 <tr>
                   {columns.map((column) => (
-                    <th key={column.key}>
+                    <th 
+                      key={column.key}
+                      style={{ cursor: column.sortable ? 'pointer' : 'default', userSelect: 'none' }}
+                      onClick={() => column.sortable && handleSort(column.key)}
+                    >
                       <div className={vendasStyles['header-content']}>
                         <span className={vendasStyles['header-text']}>{column.label}</span>
+                        {column.sortable && (
+                          <span className={vendasStyles['sort-icon']}>{getSortIcon(column.key)}</span>
+                        )}
                       </div>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((item: ModalData, index: number) => (
+                {sortedData.map((item: ModalData, index: number) => (
                   <tr key={index}>
                     {columns.map((column) => {
                       const value = item[column.key];
