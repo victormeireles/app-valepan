@@ -75,6 +75,7 @@ export default function CustomerEngagementChart({
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        aspectRatio: 2.5,
         plugins: {
           legend: {
             display: false, // Não mostrar legenda pois os labels já indicam as cores
@@ -175,7 +176,7 @@ export default function CustomerEngagementChart({
   }
 
   return (
-    <div className="relative">
+    <div className="w-full relative">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-white mb-2">
           Engajamento de Clientes
@@ -185,7 +186,7 @@ export default function CustomerEngagementChart({
         </p>
       </div>
       
-      <div className="relative h-64">
+      <div className="relative" style={{ height: '250px' }}>
         <canvas ref={chartRef} />
       </div>
 

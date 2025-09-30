@@ -400,6 +400,31 @@
   .kpi-variation.pos { color: #00d3a7; background: rgba(0, 211, 167, 0.1); }
 
   .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+  
+  /* Layout para gráficos lado a lado no desktop */
+  .charts-side-by-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  
+  /* Altura maior para os gráficos */
+  .chart-container {
+    min-height: 400px;
+  }
+  
+  /* No mobile, empilhar os gráficos verticalmente */
+  @media (max-width: 768px) {
+    .charts-side-by-side {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    
+    .chart-container {
+      min-height: 300px;
+    }
+  }
 
   /* Layout principal: 2/3 para variação por cliente, 1/3 para cards */
   .main-layout {
@@ -424,21 +449,6 @@
   }
   .span-2 { grid-column: span 2; }
   
-  /* Layout responsivo para gráficos lado a lado */
-  .charts-side-by-side {
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: 12px;
-    grid-column: span 2;
-  }
-  
-  /* No mobile, empilhar os gráficos verticalmente */
-  @media (max-width: 768px) {
-    .charts-side-by-side {
-      grid-template-columns: 1fr;
-      grid-column: span 1;
-    }
-  }
   .card { 
 	background: var(--panel); border: 1px solid var(--panel-border); border-radius: 16px; padding: 16px; 
 	box-shadow: 0 8px 24px rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.06); backdrop-filter: blur(8px); 

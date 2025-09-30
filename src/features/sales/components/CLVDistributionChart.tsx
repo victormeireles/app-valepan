@@ -155,7 +155,7 @@ export default function CLVDistributionChart({ data, onBarClick }: CLVDistributi
       <div className="relative">
         <div className="mb-4">
           <h3 className="text-lg font-semibold text-white mb-2">
-            Distribuição de CLV
+            Distribuição de LTV
           </h3>
           <p className="text-sm text-gray-400 mb-4">
             Carregando dados de distribuição...
@@ -172,7 +172,7 @@ export default function CLVDistributionChart({ data, onBarClick }: CLVDistributi
     <div className="relative">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-white mb-2">
-          Distribuição de CLV
+          Distribuição de LTV
         </h3>
         <p className="text-sm text-gray-400 mb-4">
           Clique nas barras para ver detalhes dos clientes

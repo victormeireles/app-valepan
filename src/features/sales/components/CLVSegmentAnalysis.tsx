@@ -128,7 +128,7 @@ export default function CLVSegmentAnalysis({ segmentAnalysis }: CLVSegmentAnalys
       <div className="relative">
         <div className="mb-4">
           <h3 className="text-lg font-semibold text-white mb-2">
-            Análise CLV por Segmento
+            Análise LTV por Segmento
           </h3>
           <p className="text-sm text-gray-400 mb-4">
             Comparação de valor entre diferentes tipos de cliente
@@ -145,7 +145,7 @@ export default function CLVSegmentAnalysis({ segmentAnalysis }: CLVSegmentAnalys
     <div className="relative">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-white mb-2">
-          Análise CLV por Segmento
+          Análise LTV por Segmento
         </h3>
         <p className="text-sm text-gray-400 mb-4">
           Comparação de valor entre diferentes tipos de cliente
@@ -167,7 +167,7 @@ export default function CLVSegmentAnalysis({ segmentAnalysis }: CLVSegmentAnalys
               <tr>
                 <th>Segmento</th>
                 <th>Clientes</th>
-                <th>CLV Médio</th>
+                <th>LTV Médio</th>
                 <th>Valor Total</th>
                 <th>Freq./Mês</th>
                 <th>Vida (meses)</th>

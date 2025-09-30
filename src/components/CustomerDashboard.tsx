@@ -11,6 +11,8 @@ import { useCustomerData } from '@/features/sales/hooks/useCustomerData';
 import { useCLVAnalysis } from '@/features/sales/hooks/useCLVAnalysis';
 import CustomerFilters from '@/features/sales/components/CustomerFilters';
 import CustomerEngagementChart from '@/features/sales/components/CustomerEngagementChart';
+import CustomerEvolutionChart from '@/features/sales/components/CustomerEvolutionChart';
+import { useCustomerEvolution } from '@/features/sales/hooks/useCustomerEvolution';
 import CLVDistributionChart from '@/features/sales/components/CLVDistributionChart';
 import CLVSegmentAnalysis from '@/features/sales/components/CLVSegmentAnalysis';
 import { useExcelExport } from '@/features/shared/hooks/useExcelExport';
@@ -58,6 +60,14 @@ export default function CustomerDashboard() {
     return new Date(Math.max(...rawData.map(row => row.last_purchase ? new Date(row.last_purchase).getTime() : 0)));
   }, [rawData]);
   
+  // Hook para análise de evolução temporal
+  const evolutionData = useCustomerEvolution({
+    rawData,
+    inactiveMonths,
+    selectedCustomerTypes,
+    lastPurchaseDate,
+  });
+  
   // Filtrar dados baseado nos tipos de cliente selecionados
   const filteredData = useMemo(() => {
     if (selectedCustomerTypes.length === 0) return rawData;
@@ -66,7 +76,7 @@ export default function CustomerDashboard() {
     );
   }, [rawData, selectedCustomerTypes]);
   
-  // Hook para análise CLV
+  // Hook para análise LTV
   const { 
     clvData, 
     clvKPIs, 
@@ -396,6 +406,67 @@ export default function CustomerDashboard() {
     setShowModal(true);
   };
 
+  // Função para lidar com clique nas barras do gráfico de evolução
+  const handleEvolutionBarClick = (period: string, data: { maintained: number; new: number; reactivated: number; lost: number; totalStart: number; totalEnd: number; netGrowth: number }) => {
+    // Preparar dados para o modal com informações do período
+    const modalData: UnifiedModalData[] = [
+      {
+        customer: `Período: ${period}`,
+        customerType: 'Resumo',
+        totalOrders: data.maintained + data.new + data.reactivated,
+        firstPurchase: new Date(),
+        lastPurchase: new Date(),
+        totalValue: 0,
+        lastMonthRevenue: data.totalStart,
+        currentMonthRevenue: data.totalEnd,
+      },
+      {
+        customer: `Clientes Mantidos`,
+        customerType: 'Categoria',
+        totalOrders: data.maintained,
+        firstPurchase: new Date(),
+        lastPurchase: new Date(),
+        totalValue: 0,
+        lastMonthRevenue: 0,
+        currentMonthRevenue: 0,
+      },
+      {
+        customer: `Clientes Novos`,
+        customerType: 'Categoria',
+        totalOrders: data.new,
+        firstPurchase: new Date(),
+        lastPurchase: new Date(),
+        totalValue: 0,
+        lastMonthRevenue: 0,
+        currentMonthRevenue: 0,
+      },
+      {
+        customer: `Clientes Reativados`,
+        customerType: 'Categoria',
+        totalOrders: data.reactivated,
+        firstPurchase: new Date(),
+        lastPurchase: new Date(),
+        totalValue: 0,
+        lastMonthRevenue: 0,
+        currentMonthRevenue: 0,
+      },
+      {
+        customer: `Clientes Perdidos`,
+        customerType: 'Categoria',
+        totalOrders: data.lost,
+        firstPurchase: new Date(),
+        lastPurchase: new Date(),
+        totalValue: 0,
+        lastMonthRevenue: 0,
+        currentMonthRevenue: 0,
+      },
+    ];
+
+    setModalTitle(`Evolução - ${period} (Crescimento: ${data.netGrowth >= 0 ? '+' : ''}${data.netGrowth})`);
+    setModalData(modalData);
+    setShowModal(true);
+  };
+
   // Função para exportar dados para Excel
   const handleExportToExcel = () => {
     // Calcular os meses para exibir no cabeçalho baseado na data de referência
@@ -495,17 +566,17 @@ export default function CustomerDashboard() {
     }
   ];
 
-  // KPIs específicos do CLV
+  // KPIs específicos do LTV
   const clvKpiCards: KPICard[] = [
     {
-      title: 'CLV Médio Total',
+      title: 'LTV Médio Total',
       value: clvKPIs ? formatCurrency(clvKPIs.averageCLV) : 'R$ 0,00',
       tooltip: 'Valor médio total gasto por cliente ao longo do tempo'
     },
     {
-      title: 'CLV Top 20%',
+      title: 'LTV Top 20%',
       value: clvKPIs ? formatCurrency(clvKPIs.top20PercentCLV) : 'R$ 0,00',
-      tooltip: 'CLV médio dos 20% clientes mais valiosos'
+      tooltip: 'LTV médio dos 20% clientes mais valiosos'
     },
     {
       title: 'Clientes em Risco',
@@ -563,9 +634,15 @@ export default function CustomerDashboard() {
         />
         </section>
 
-        {/* Gráfico de Engajamento */}
-        <section className={vendasStyles.charts}>
-          <div className={vendasStyles.card}>
+        {/* Gráficos lado a lado */}
+        <section className={vendasStyles['charts-side-by-side']}>
+          <div className={`${vendasStyles.card} ${vendasStyles['chart-container']}`}>
+            <CustomerEvolutionChart
+              evolutionData={evolutionData}
+              onBarClick={handleEvolutionBarClick}
+            />
+          </div>
+          <div className={`${vendasStyles.card} ${vendasStyles['chart-container']}`}>
             <CustomerEngagementChart
               engagementData={engagementData}
               onBarClick={handleBarClick}
@@ -573,7 +650,7 @@ export default function CustomerDashboard() {
           </div>
         </section>
 
-        {/* KPIs CLV */}
+        {/* KPIs LTV */}
         <section className={vendasStyles.charts}>
           <KPISection 
             kpis={clvKpiCards}
@@ -583,13 +660,13 @@ export default function CustomerDashboard() {
           />
         </section>
 
-        {/* Distribuição CLV */}
+        {/* Distribuição LTV */}
         <section className={vendasStyles.charts}>
           <div className={vendasStyles.card}>
             <CLVDistributionChart
               data={clvDistribution}
               onBarClick={(bucket) => {
-              // Filtrar clientes na faixa de CLV selecionada
+              // Filtrar clientes na faixa de LTV selecionada
               const customersInRange = clvData.filter(customer => 
                 customer.clvHistorical >= bucket.min && customer.clvHistorical < bucket.max
               );
@@ -616,7 +693,7 @@ export default function CustomerDashboard() {
         </section>
 
 
-        {/* Análise por Segmento CLV */}
+        {/* Análise por Segmento LTV */}
         <section className={vendasStyles.charts}>
           <div className={vendasStyles.card}>
             <CLVSegmentAnalysis segmentAnalysis={segmentAnalysis} />
@@ -631,7 +708,7 @@ export default function CustomerDashboard() {
         title={modalTitle}
         rows={modalData}
         columns={(() => {
-          // Verificar se os dados contêm informações CLV
+          // Verificar se os dados contêm informações LTV
           const hasCLVData = modalData.length > 0 && 'clvRiskScore' in modalData[0];
           
           const baseColumns = [
