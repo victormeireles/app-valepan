@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { fetchAvailableDashboards, DashboardInfo } from "@/lib/sheets";
 import LogoCompact from "@/components/LogoCompact";
-import TenantSelector from "@/components/TenantSelector";
+import UnifiedTenantSelector from "@/components/UnifiedTenantSelector";
 import styles from "@/styles/Sidebar.module.css";
 
 type NavItem = {
@@ -91,7 +91,7 @@ export default function Sidebar() {
         <nav className={styles.sbNav}>
           <div className={styles.sbNavMain}>
             {/* Seletor de Tenant */}
-            <TenantSelector />
+            <UnifiedTenantSelector variant="desktop" />
             
             {/* Grupo 1: Home */}
             <div className={styles.navGroup}>

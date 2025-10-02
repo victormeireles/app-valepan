@@ -70,7 +70,16 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
         previousData,
         startDate,
         endDate,
-        { meta, quaseInativoMeses, inativoMeses, maxPeriodoMeses, topClientsCount }
+        {
+          meta,
+          quaseInativoMeses,
+          inativoMeses,
+          maxPeriodoMeses,
+          topClientsCount,
+          // Passar clientes selecionados pelo usuário para que a evolução semanal
+          // só filtre quando houver seleção explícita.
+          filteredClients: clients
+        }
       )
     );
   };

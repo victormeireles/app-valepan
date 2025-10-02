@@ -9,6 +9,9 @@ export type ComputeChartOptions = {
   inativoMeses: number;
   maxPeriodoMeses: number;
   topClientsCount?: number;
+  // Lista opcional de clientes explicitamente filtrados pelo usuário.
+  // Quando presente, a evolução semanal considera apenas esses clientes; caso contrário, considera todos.
+  filteredClients?: string[];
 };
 
 export function computeSalesChartData(
@@ -24,10 +27,14 @@ export function computeSalesChartData(
   // 1) Semanas (evolução)
   const weeks = lastNWeeksRanges(endDate, { totalDays: 55, weeks: 8 });
   const semanas: SemanaData[] = weeks.map(w => {
+    // Regra: a série semanal deve usar SEMPRE a base completa (allData),
+    // aplicando filtro apenas quando o usuário selecionou clientes específicos.
     let dataToUse = allData;
-    if (filteredData.length < allData.length) {
-      const clientesFiltrados = new Set(filteredData.map(row => row.cliente));
-      dataToUse = allData.filter(row => clientesFiltrados.has(row.cliente));
+    const userSelectedClients = options.filteredClients && options.filteredClients.length > 0
+      ? new Set(options.filteredClients)
+      : null;
+    if (userSelectedClients) {
+      dataToUse = allData.filter(row => userSelectedClients.has(row.cliente));
     }
 
     const dadosSemana = dataToUse.filter(row =>

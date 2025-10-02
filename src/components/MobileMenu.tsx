@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import LogoCompact from "@/components/LogoCompact";
-import MobileTenantSelector from "@/components/MobileTenantSelector";
+import UnifiedTenantSelector from "@/components/UnifiedTenantSelector";
 import { fetchAvailableDashboards, type DashboardInfo } from '@/lib/sheets';
 
 type NavItem = {
@@ -133,7 +133,7 @@ export default function MobileMenu() {
         </div>
 
         {/* Seletor de Tenant Mobile */}
-        <MobileTenantSelector />
+        <UnifiedTenantSelector variant="mobile" />
 
         <nav className="mobile-nav">
           {nav.map((item) => {
