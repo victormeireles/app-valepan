@@ -1,5 +1,4 @@
 import vendasStyles from '@/styles/vendas.module.css';
-import tooltipStyles from '@/styles/tooltip.module.css';
 import Tooltip from '@/components/Tooltip';
 
 export type KPICard = {
@@ -15,12 +14,9 @@ export type KPICard = {
 
 type Props = {
   kpis: KPICard[];
-  formatK: (n: number) => string;
-  formatNumber: (n: number, suffix?: string) => string;
-  formatVariation: (v: number, isInteger?: boolean, isPercentagePoints?: boolean) => string;
 };
 
-export function KPISection({ kpis, formatK, formatNumber, formatVariation }: Props) {
+export function KPISection({ kpis }: Props) {
   return (
     <section className={vendasStyles.kpis}>
       {kpis.map((kpi, index) => (
@@ -39,7 +35,7 @@ export function KPISection({ kpis, formatK, formatNumber, formatVariation }: Pro
           {kpi.variation !== undefined && (
             <div className={`${vendasStyles['kpi-sub']} ${kpi.variation >= 0 ? vendasStyles.pos : vendasStyles.neg}`}>
               {kpi.variationLabel && `${kpi.variationLabel}: `}
-              {(kpi.formatVariation || formatVariation)(kpi.variation)}
+              {kpi.formatVariation ? kpi.formatVariation(kpi.variation) : `${kpi.variation > 0 ? '+' : ''}${kpi.variation.toFixed(1)}%`}
             </div>
           )}
         </div>

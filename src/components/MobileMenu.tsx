@@ -50,6 +50,9 @@ export default function MobileMenu() {
     return iconMap[dashboardId] || iconMap.default;
   };
 
+  // Verificar se o dashboard de vendas está disponível
+  const hasSalesAccess = dashboards.some(d => d.id === 'sales');
+
   // Construir menu dinamicamente
   const nav: NavItem[] = [
     { href: "/", label: "Home", icon: "home" },
@@ -59,6 +62,12 @@ export default function MobileMenu() {
       label: dashboard.label,
       icon: getDashboardIcon(dashboard.id)
     })),
+    // Adicionar Vendas Semanais se tiver acesso ao dashboard de vendas
+    ...(hasSalesAccess ? [{
+      href: "/dashboard/vendas/semanal",
+      label: "Vendas Semanais",
+      icon: "calendar_today"
+    }] : []),
     { label: "Logout", icon: "logout", onClick: () => signOut({ callbackUrl: "/login" }) },
   ];
 

@@ -60,6 +60,9 @@ export default function Sidebar() {
     }
   };
 
+  // Verificar se o dashboard de vendas está disponível
+  const hasSalesAccess = dashboards.some(d => d.id === 'sales');
+
   // Construir menu dinamicamente
   const nav: NavItem[] = [
     { href: "/", label: "Home", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></Icon> },
@@ -69,6 +72,12 @@ export default function Sidebar() {
       label: dashboard.label,
       icon: getDashboardIcon(dashboard.id)
     })),
+    // Adicionar Vendas Semanais se tiver acesso ao dashboard de vendas
+    ...(hasSalesAccess ? [{
+      href: "/dashboard/vendas/semanal",
+      label: "Vendas Semanais",
+      icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/></svg></Icon>
+    }] : []),
     { label: "Logout", icon: <Icon><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.18 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg></Icon>, onClick: () => signOut({ callbackUrl: "/login" }) },
   ];
 

@@ -111,4 +111,19 @@ export type ModalData = {
   last?: Date;
 };
 
+// Tipos para visão semanal de vendas
+export type MetricType = 'faturamento' | 'quantidade' | 'caixas';
+
+export interface WeeklySalesRow {
+  cliente: string;
+  weekValues: number[];
+  total: number;
+}
+
+export interface WeeklySalesTableData {
+  rows: WeeklySalesRow[];
+  totalRow: WeeklySalesRow;
+  weeks: import('@/features/common/utils/date').WeekRange[];
+}
+
 

@@ -1,0 +1,253 @@
+.tableContainer {
+  width: 100%;
+  overflow-x: auto;
+  background: #1a1a1a;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 800px;
+}
+
+.table thead tr {
+  background: #2a2a2a;
+}
+
+.table th {
+  padding: 12px 16px;
+  text-align: right;
+  font-weight: 600;
+  font-size: 13px;
+  color: #e0e0e0;
+  border-bottom: 2px solid #333;
+  white-space: nowrap;
+}
+
+.clientHeader {
+  text-align: left !important;
+  position: sticky;
+  left: 0;
+  background: #2a2a2a;
+  z-index: 10;
+  min-width: 200px;
+}
+
+.weekHeader {
+  min-width: 100px;
+}
+
+.totalHeader {
+  font-weight: 700;
+  color: #fff;
+  background: #333;
+}
+
+.dataRow {
+  background: #1a1a1a;
+  transition: background 0.2s ease;
+}
+
+.dataRow:hover {
+  background: #252525;
+}
+
+.table td {
+  padding: 12px 16px;
+  text-align: right;
+  font-size: 14px;
+  color: #d0d0d0;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.clientCell {
+  text-align: left !important;
+  font-weight: 500;
+  color: #fff;
+  position: sticky;
+  left: 0;
+  background: inherit;
+  z-index: 5;
+}
+
+.dataRow:hover .clientCell {
+  background: #252525;
+}
+
+.valueCell {
+  font-family: 'Roboto Mono', monospace;
+}
+
+.totalCell {
+  font-weight: 700;
+  color: #fff;
+  background: #2a2a2a;
+}
+
+.totalRow {
+  background: #2a2a2a !important;
+  font-weight: 700;
+}
+
+.totalRow td {
+  border-top: 2px solid #444;
+  border-bottom: none;
+  color: #fff;
+  padding: 14px 16px;
+}
+
+.totalClientCell {
+  text-align: left !important;
+  font-weight: 700;
+  font-size: 15px;
+  position: sticky;
+  left: 0;
+  background: #2a2a2a;
+  z-index: 10;
+}
+
+.totalValueCell {
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 600;
+}
+
+.grandTotalCell {
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 700;
+  font-size: 15px;
+  background: #333;
+}
+
+/* Linhas expansíveis */
+.expandableRow {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.expandableRow:hover {
+  background: #252525 !important;
+}
+
+.expandIcon {
+  display: inline-block;
+  margin-right: 8px;
+  transition: transform 0.3s;
+  font-size: 14px;
+  color: #888;
+  user-select: none;
+}
+
+.expandIcon.expanded {
+  transform: rotate(90deg);
+  color: #1E88E5;
+}
+
+/* Linhas expandidas agora são renderizadas como linhas normais da tabela */
+
+/* Linhas de produto (parte da tabela principal) */
+.productRow {
+  background: #1a1a1a;
+  transition: background 0.15s;
+  border-left: 3px solid transparent;
+}
+
+.productRow:hover {
+  background: #1f1f1f;
+  border-left-color: #1E88E5;
+}
+
+/* Removido: produtos agora usam classes da tabela principal */
+
+.productCell {
+  text-align: left !important;
+  font-weight: 500;
+  color: #ddd;
+  position: sticky;
+  left: 0;
+  background: #1a1a1a;
+  z-index: 5;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.2);
+  padding-left: 48px !important;
+}
+
+.productRow:hover .productCell {
+  background: #1f1f1f;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.3);
+}
+
+.productValueCell {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 13px;
+  color: #c0c0c0;
+  background: #1a1a1a;
+}
+
+.productRow:hover .productValueCell {
+  background: #1f1f1f;
+}
+
+.productTotalCell {
+  font-weight: 600;
+  color: #fff;
+  background: #222;
+  font-family: 'Roboto Mono', monospace;
+}
+
+.productRow:hover .productTotalCell {
+  background: #252525;
+}
+
+.loadingProducts {
+  padding: 24px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.loadingRow {
+  background: #1a1a1a;
+}
+
+.loadingCell {
+  padding: 0 !important;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .tableContainer {
+    padding: 12px;
+  }
+
+  .table th,
+  .table td {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .clientHeader {
+    min-width: 150px;
+  }
+
+  .weekHeader {
+    min-width: 80px;
+  }
+
+  .expandIcon {
+    margin-right: 6px;
+    font-size: 12px;
+  }
+  
+  .productCell {
+    padding-left: 40px !important;
+  }
+
+  .loadingProducts {
+    padding: 16px;
+    font-size: 12px;
+  }
+}
+

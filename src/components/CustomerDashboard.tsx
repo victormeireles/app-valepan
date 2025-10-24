@@ -257,21 +257,8 @@ export default function CustomerDashboard() {
     }
   }, [filteredData, calculateKPIs, calculateEngagement]);
 
-  const formatK = (n: number) => {
-    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-    if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
-    return n.toString();
-  };
-
   const formatNumber = (n: number, suffix = '') => {
     return `${n.toLocaleString('pt-BR')}${suffix}`;
-  };
-
-  const formatVariation = (v: number, isInteger = false, isPercentagePoints = false) => {
-    const sign = v >= 0 ? '+' : '';
-    const value = isInteger ? Math.round(v) : v.toFixed(1);
-    const suffix = isPercentagePoints ? 'pp' : '%';
-    return `${sign}${value}${suffix}`;
   };
 
   const formatCurrency = (value: number) => {
@@ -628,9 +615,6 @@ export default function CustomerDashboard() {
         <section className={vendasStyles.charts}>
         <KPISection 
             kpis={basicKpiCards}
-          formatK={formatK}
-          formatNumber={formatNumber}
-          formatVariation={formatVariation}
         />
         </section>
 
@@ -654,9 +638,6 @@ export default function CustomerDashboard() {
         <section className={vendasStyles.charts}>
           <KPISection 
             kpis={clvKpiCards}
-            formatK={formatK}
-            formatNumber={formatNumber}
-            formatVariation={formatVariation}
           />
         </section>
 

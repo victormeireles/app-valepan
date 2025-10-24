@@ -101,7 +101,20 @@ export default function Home() {
 
   const dashboards = availableDashboards.map(getDashboardConfig);
 
+  // Verificar se tem acesso ao dashboard de vendas
+  const hasSalesAccess = availableDashboards.some(d => d.id === 'sales');
 
+  // Adicionar card de Vendas Semanais se tiver acesso
+  const weeklySalesCard = hasSalesAccess ? {
+    id: 'weekly-sales',
+    title: "Vendas Semanais",
+    description: "Análise detalhada de vendas por semana",
+    status: "Disponível",
+    href: "/dashboard/vendas/semanal",
+    icon: "calendar_today",
+    color: "#00d3a7",
+    bgColor: "rgba(0, 211, 167, 0.15)"
+  } : null;
 
   return (
     <>
@@ -629,6 +642,38 @@ export default function Home() {
               )}
             </div>
           ))}
+          
+          {weeklySalesCard && (
+            <div key={weeklySalesCard.id} className="dashboard-card">
+              <div className="dashboard-header">
+                <div 
+                  className="dashboard-icon"
+                  style={{ 
+                    background: weeklySalesCard.bgColor,
+                    color: weeklySalesCard.color
+                  }}
+                >
+                  <span className="material-icons">{weeklySalesCard.icon}</span>
+                </div>
+                <span className="status-badge status-available">
+                  {weeklySalesCard.status}
+                </span>
+              </div>
+              
+              <h3 className="dashboard-title">{weeklySalesCard.title}</h3>
+              <p className="dashboard-description">{weeklySalesCard.description}</p>
+              
+              <Link 
+                href={weeklySalesCard.href}
+                className="dashboard-button available"
+              >
+                Acessar Dashboard
+                <svg className="arrow-icon" viewBox="0 0 24 24">
+                  <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"/>
+                </svg>
+              </Link>
+            </div>
+          )}
         </section>
 
         <section className="sheets-section">
