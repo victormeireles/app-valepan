@@ -1,48 +1,57 @@
 import { useMemo } from 'react';
 import { ProductSaleRow } from '@/lib/sheets';
-import { lastNWeeksRanges, toEndOfDay } from '@/features/common/utils/date';
-import type { MetricType, WeeklySalesRow, WeeklySalesTableData } from '@/features/sales/types';
+import { buildSalesPeriodRanges, toEndOfDay } from '@/features/common/utils/date';
+import type {
+  MetricType,
+  PeriodGranularity,
+  SalesPeriodRow,
+  SalesPeriodTableData,
+} from '@/features/sales/types';
 
 export type UseWeeklySalesTableDataArgs = {
   filteredData: ProductSaleRow[];
   endDate: Date | null;
   metric: MetricType;
+  granularity: PeriodGranularity;
 };
 
-export function useWeeklySalesTableData(args: UseWeeklySalesTableDataArgs): WeeklySalesTableData | null {
-  const { filteredData, endDate, metric } = args;
+export function useWeeklySalesTableData(args: UseWeeklySalesTableDataArgs): SalesPeriodTableData | null {
+  const { filteredData, endDate, metric, granularity } = args;
 
   return useMemo(() => {
     if (!endDate || filteredData.length === 0) {
       return null;
     }
 
-    // Gerar 12 semanas (83 dias divididos em 12 períodos)
-    const weeks = lastNWeeksRanges(endDate, { totalDays: 83, weeks: 12 });
+    const periods = buildSalesPeriodRanges(endDate, granularity);
 
-    // Mapear dados por cliente e semana
-    const clientWeekMap = new Map<string, Map<number, number>>();
+    // Mapear dados por cliente e período
+    const clientPeriodMap = new Map<string, Map<number, number>>();
 
     for (const row of filteredData) {
       const cliente = row.cliente;
       
-      // Encontrar qual semana este registro pertence
-      const weekIndex = weeks.findIndex(week => {
+      // Encontrar qual período este registro pertence
+      const periodIndex = periods.findIndex(period => {
         const rowDate = row.data;
-        const weekStart = new Date(week.start.getFullYear(), week.start.getMonth(), week.start.getDate());
-        const weekEnd = toEndOfDay(week.end);
-        return rowDate >= weekStart && rowDate <= weekEnd;
+        const periodStart = new Date(
+          period.start.getFullYear(),
+          period.start.getMonth(),
+          period.start.getDate()
+        );
+        const periodEnd = toEndOfDay(period.end);
+        return rowDate >= periodStart && rowDate <= periodEnd;
       });
 
-      if (weekIndex === -1) continue;
+      if (periodIndex === -1) continue;
 
       // Inicializar mapa do cliente se não existir
-      if (!clientWeekMap.has(cliente)) {
-        clientWeekMap.set(cliente, new Map<number, number>());
+      if (!clientPeriodMap.has(cliente)) {
+        clientPeriodMap.set(cliente, new Map<number, number>());
       }
 
-      const weekMap = clientWeekMap.get(cliente);
-      if (!weekMap) continue;
+      const periodMap = clientPeriodMap.get(cliente);
+      if (!periodMap) continue;
 
       // Calcular valor da métrica
       let metricValue = 0;
@@ -58,26 +67,26 @@ export function useWeeklySalesTableData(args: UseWeeklySalesTableDataArgs): Week
           break;
       }
 
-      // Acumular valor na semana correspondente
-      weekMap.set(weekIndex, (weekMap.get(weekIndex) ?? 0) + metricValue);
+      // Acumular valor no período correspondente
+      periodMap.set(periodIndex, (periodMap.get(periodIndex) ?? 0) + metricValue);
     }
 
     // Construir linhas de clientes
-    const rows: WeeklySalesRow[] = [];
+    const rows: SalesPeriodRow[] = [];
     
-    for (const [cliente, weekMap] of clientWeekMap.entries()) {
-      const weekValues: number[] = [];
+    for (const [cliente, periodMap] of clientPeriodMap.entries()) {
+      const periodValues: number[] = [];
       let total = 0;
 
-      for (let i = 0; i < weeks.length; i++) {
-        const value = weekMap.get(i) ?? 0;
-        weekValues.push(value);
+      for (let i = 0; i < periods.length; i++) {
+        const value = periodMap.get(i) ?? 0;
+        periodValues.push(value);
         total += value;
       }
 
       rows.push({
-        cliente,
-        weekValues,
+        entityName: cliente,
+        values: periodValues,
         total,
       });
     }
@@ -86,29 +95,29 @@ export function useWeeklySalesTableData(args: UseWeeklySalesTableDataArgs): Week
     rows.sort((a, b) => b.total - a.total);
 
     // Calcular linha de totais
-    const totalWeekValues: number[] = [];
+    const totalPeriodValues: number[] = [];
     let grandTotal = 0;
 
-    for (let i = 0; i < weeks.length; i++) {
-      let weekTotal = 0;
+    for (let i = 0; i < periods.length; i++) {
+      let periodTotal = 0;
       for (const row of rows) {
-        weekTotal += row.weekValues[i] ?? 0;
+        periodTotal += row.values[i] ?? 0;
       }
-      totalWeekValues.push(weekTotal);
-      grandTotal += weekTotal;
+      totalPeriodValues.push(periodTotal);
+      grandTotal += periodTotal;
     }
 
-    const totalRow: WeeklySalesRow = {
-      cliente: 'Total Geral',
-      weekValues: totalWeekValues,
+    const totalRow: SalesPeriodRow = {
+      entityName: 'Total Geral',
+      values: totalPeriodValues,
       total: grandTotal,
     };
 
     return {
       rows,
       totalRow,
-      weeks,
+      periods,
     };
-  }, [filteredData, endDate, metric]);
+  }, [filteredData, endDate, metric, granularity]);
 }
 

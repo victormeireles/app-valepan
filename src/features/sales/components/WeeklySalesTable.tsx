@@ -1,14 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import styles from '@/styles/weekly-sales-table.module.css';
 import { formatK } from '@/lib/sheets';
-import type { WeeklySalesTableData, MetricType, WeeklySalesRow } from '@/features/sales/types';
-import { computeWeeklySalesProductData } from '@/features/sales/hooks/useWeeklySalesProductData';
+import type {
+  SalesPeriodTableData,
+  MetricType,
+  SalesPeriodRow,
+  SalesPeriodRange,
+} from '@/features/sales/types';
+import { computeSalesPeriodProductData } from '@/features/sales/hooks/useWeeklySalesProductData';
 import type { ProductSaleRow } from '@/lib/sheets';
 
 interface WeeklySalesTableProps {
-  data: WeeklySalesTableData;
+  data: SalesPeriodTableData;
   metric: MetricType;
   filteredData: ProductSaleRow[];
 }
@@ -21,16 +27,47 @@ function formatValue(value: number, metric: MetricType): string {
   return value.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
 }
 
+function formatWeekdayAbbreviation(date: Date): string {
+  const weekdayNames: Record<number, string> = {
+    0: 'dom',
+    1: 'seg',
+    2: 'ter',
+    3: 'qua',
+    4: 'qui',
+    5: 'sex',
+    6: 'sab',
+  };
+  return weekdayNames[date.getDay()] ?? '';
+}
+
+function renderHeaderLabel(period: SalesPeriodRange): ReactNode {
+  if (period.granularity === 'daily') {
+    const dateLabel = period.start.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+    });
+    const weekdayLabel = formatWeekdayAbbreviation(period.start);
+    return (
+      <div className={styles.weekHeaderContent}>
+        <span className={styles.weekHeaderDate}>{dateLabel}</span>
+        <span className={styles.weekHeaderWeekday}>{weekdayLabel}</span>
+      </div>
+    );
+  }
+
+  return <span className={styles.weekHeaderLabel}>{period.label}</span>;
+}
+
 export function WeeklySalesTable({ data, metric, filteredData }: WeeklySalesTableProps) {
-  const { rows, totalRow, weeks } = data;
+  const { rows, totalRow, periods } = data;
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
-  const [productDataCache, setProductDataCache] = useState<Map<string, WeeklySalesRow[]>>(new Map());
+  const [productDataCache, setProductDataCache] = useState<Map<string, SalesPeriodRow[]>>(new Map());
 
   // Limpar cache e colapsar quando filtros mudarem
   useEffect(() => {
     setProductDataCache(new Map());
     setExpandedClientId(null);
-  }, [filteredData, metric]);
+  }, [filteredData, metric, periods]);
 
   const handleRowClick = (clientName: string) => {
     if (expandedClientId === clientName) {
@@ -42,10 +79,10 @@ export function WeeklySalesTable({ data, metric, filteredData }: WeeklySalesTabl
       
       // Calcular dados de produtos se ainda não estiver no cache
       if (!productDataCache.has(clientName)) {
-        const productData = computeWeeklySalesProductData(
+        const productData = computeSalesPeriodProductData(
           filteredData,
           clientName,
-          weeks,
+          periods,
           metric
         );
         setProductDataCache(new Map(productDataCache.set(clientName, productData)));
@@ -66,9 +103,9 @@ export function WeeklySalesTable({ data, metric, filteredData }: WeeklySalesTabl
         <thead>
           <tr>
             <th className={styles.clientHeader}>Cliente</th>
-            {weeks.map((week, index) => (
+            {periods.map((period, index) => (
               <th key={index} className={styles.weekHeader}>
-                {week.label}
+                {renderHeaderLabel(period)}
               </th>
             ))}
             <th className={styles.totalHeader}>Total</th>
@@ -76,16 +113,16 @@ export function WeeklySalesTable({ data, metric, filteredData }: WeeklySalesTabl
         </thead>
         <tbody>
           {rows.map((row, index) => {
-            const isExpanded = expandedClientId === row.cliente;
-            const productData = productDataCache.get(row.cliente);
+            const isExpanded = expandedClientId === row.entityName;
+            const productData = productDataCache.get(row.entityName);
             
             return (
               <>
                 <tr 
                   key={index} 
                   className={`${styles.dataRow} ${styles.expandableRow}`}
-                  onClick={() => handleRowClick(row.cliente)}
-                  onKeyDown={(e) => handleKeyDown(e, row.cliente)}
+                  onClick={() => handleRowClick(row.entityName)}
+                  onKeyDown={(e) => handleKeyDown(e, row.entityName)}
                   role="button"
                   tabIndex={0}
                   aria-expanded={isExpanded}
@@ -94,10 +131,10 @@ export function WeeklySalesTable({ data, metric, filteredData }: WeeklySalesTabl
                     <span className={`${styles.expandIcon} ${isExpanded ? styles.expanded : ''}`}>
                       ▸
                     </span>
-                    {row.cliente}
+                    {row.entityName}
                   </td>
-                  {row.weekValues.map((value, weekIndex) => (
-                    <td key={weekIndex} className={styles.valueCell}>
+                  {row.values.map((value, periodIndex) => (
+                    <td key={periodIndex} className={styles.valueCell}>
                       {value > 0 ? formatValue(value, metric) : '-'}
                     </td>
                   ))}
@@ -110,10 +147,10 @@ export function WeeklySalesTable({ data, metric, filteredData }: WeeklySalesTabl
                     {productData.map((productRow, prodIndex) => (
                       <tr key={`${index}-product-${prodIndex}`} className={styles.productRow}>
                         <td className={styles.productCell}>
-                          {productRow.cliente}
+                          {productRow.entityName}
                         </td>
-                        {productRow.weekValues.map((value, weekIndex) => (
-                          <td key={weekIndex} className={styles.productValueCell}>
+                        {productRow.values.map((value, periodIndex) => (
+                          <td key={periodIndex} className={styles.productValueCell}>
                             {value > 0 ? formatValue(value, metric) : '-'}
                           </td>
                         ))}
@@ -126,7 +163,7 @@ export function WeeklySalesTable({ data, metric, filteredData }: WeeklySalesTabl
                 )}
                 {isExpanded && !productData && (
                   <tr key={`${index}-loading`} className={styles.loadingRow}>
-                    <td colSpan={weeks.length + 2} className={styles.loadingCell}>
+                    <td colSpan={periods.length + 2} className={styles.loadingCell}>
                       <div className={styles.loadingProducts}>
                         Carregando produtos...
                       </div>
@@ -137,9 +174,9 @@ export function WeeklySalesTable({ data, metric, filteredData }: WeeklySalesTabl
             );
           })}
           <tr className={styles.totalRow}>
-            <td className={styles.totalClientCell}>{totalRow.cliente}</td>
-            {totalRow.weekValues.map((value, weekIndex) => (
-              <td key={weekIndex} className={styles.totalValueCell}>
+            <td className={styles.totalClientCell}>{totalRow.entityName}</td>
+            {totalRow.values.map((value, periodIndex) => (
+              <td key={periodIndex} className={styles.totalValueCell}>
                 {formatValue(value, metric)}
               </td>
             ))}

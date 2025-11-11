@@ -1,5 +1,14 @@
 // Utilitários de datas e períodos compartilhados entre dashboards
 
+export type PeriodGranularity = 'weekly' | 'daily' | 'monthly';
+
+export interface SalesPeriodRange {
+  start: Date;
+  end: Date;
+  label: string;
+  granularity: PeriodGranularity;
+}
+
 export function toStartOfDay(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -74,26 +83,99 @@ export function lastNWeeksRanges(
   endDate: Date,
   options: { totalDays?: number; weeks?: number } = {}
 ): WeekRange[] {
-  const totalDays = options.totalDays ?? 55;
-  const weeks = options.weeks ?? 8;
-  const daysPerWeek = Math.ceil(totalDays / weeks);
+  const weeklyRanges = buildSalesPeriodRanges(endDate, 'weekly', {
+    totalDays: options.totalDays,
+    totalUnits: options.weeks,
+  });
+  return weeklyRanges.map(range => ({
+    start: range.start,
+    end: range.end,
+    label: range.label,
+  }));
+}
 
+export function buildSalesPeriodRanges(
+  endDate: Date,
+  granularity: PeriodGranularity,
+  options: { totalDays?: number; totalUnits?: number } = {}
+): SalesPeriodRange[] {
   const endRef = toEndOfDay(endDate);
-  const ranges: WeekRange[] = [];
-
-  for (let i = 0; i < weeks; i++) {
-    const weekEnd = new Date(endRef.getTime() - i * daysPerWeek * 24 * 60 * 60 * 1000);
-    const weekStart = new Date(weekEnd.getTime() - (daysPerWeek - 1) * 24 * 60 * 60 * 1000);
-    ranges.unshift({ start: weekStart, end: weekEnd, label: formatDDMM(weekStart) + '–' + formatDDMM(weekEnd) });
+  switch (granularity) {
+    case 'daily': {
+      const totalDays = options.totalDays ?? 14;
+      const ranges: SalesPeriodRange[] = [];
+      for (let i = 0; i < totalDays; i++) {
+        const current = new Date(endRef);
+        current.setDate(endRef.getDate() - i);
+        const start = toStartOfDay(current);
+        const end = toEndOfDay(current);
+        ranges.unshift({
+          start,
+          end,
+          label: `${formatDDMM(start)} ${formatWeekdayAbbreviation(start)}`,
+          granularity: 'daily',
+        });
+      }
+      return ranges;
+    }
+    case 'monthly': {
+      const totalMonths = options.totalUnits ?? 3;
+      const ranges: SalesPeriodRange[] = [];
+      for (let i = 0; i < totalMonths; i++) {
+        const monthReference = new Date(endRef);
+        monthReference.setDate(1);
+        monthReference.setMonth(monthReference.getMonth() - i);
+        const start = toStartOfDay(monthReference);
+        const end = i === 0
+          ? endRef
+          : toEndOfDay(new Date(monthReference.getFullYear(), monthReference.getMonth() + 1, 0));
+        ranges.unshift({
+          start,
+          end,
+          label: formatMonthYear(start),
+          granularity: 'monthly',
+        });
+      }
+      return ranges;
+    }
+    case 'weekly':
+    default: {
+      const weeks = options.totalUnits ?? 12;
+      const totalDays = options.totalDays ?? 83;
+      const daysPerWeek = Math.ceil(totalDays / weeks);
+      const ranges: SalesPeriodRange[] = [];
+      for (let i = 0; i < weeks; i++) {
+        const weekEnd = new Date(endRef);
+        weekEnd.setDate(endRef.getDate() - i * daysPerWeek);
+        const weekStart = new Date(weekEnd);
+        weekStart.setDate(weekEnd.getDate() - (daysPerWeek - 1));
+        ranges.unshift({
+          start: toStartOfDay(weekStart),
+          end: toEndOfDay(weekEnd),
+          label: formatDDMM(weekStart) + '–' + formatDDMM(weekEnd),
+          granularity: 'weekly',
+        });
+      }
+      return ranges;
+    }
   }
-
-  return ranges;
 }
 
 function formatDDMM(d: Date): string {
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   return `${dd}/${mm}`;
+}
+
+function formatMonthYear(d: Date): string {
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${month}/${year}`;
+}
+
+function formatWeekdayAbbreviation(date: Date): string {
+  const weekdayNames = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+  return weekdayNames[date.getDay()] ?? '';
 }
 
 // Funções centralizadas para criação de datas de período (local)

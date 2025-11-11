@@ -1,6 +1,8 @@
 // Tipos compartilhados para o dashboard de Vendas
 // Estes tipos foram extraídos de `src/components/VendasDashboard.tsx`
 
+import type { SalesPeriodRange } from '@/features/common/utils/date';
+
 export interface KpiValue {
   valor: number;
   variacao: number;
@@ -114,16 +116,22 @@ export type ModalData = {
 // Tipos para visão semanal de vendas
 export type MetricType = 'faturamento' | 'quantidade' | 'caixas';
 
-export interface WeeklySalesRow {
-  cliente: string;
-  weekValues: number[];
+export interface SalesPeriodRow {
+  entityName: string;
+  values: number[];
   total: number;
 }
 
-export interface WeeklySalesTableData {
-  rows: WeeklySalesRow[];
-  totalRow: WeeklySalesRow;
-  weeks: import('@/features/common/utils/date').WeekRange[];
+export interface SalesPeriodTableData {
+  rows: SalesPeriodRow[];
+  totalRow: SalesPeriodRow;
+  periods: SalesPeriodRange[];
 }
+
+// Compatibilidade temporária com implementações existentes
+export type WeeklySalesRow = SalesPeriodRow;
+export type WeeklySalesTableData = SalesPeriodTableData;
+
+export type { PeriodGranularity, SalesPeriodRange } from '@/features/common/utils/date';
 
 

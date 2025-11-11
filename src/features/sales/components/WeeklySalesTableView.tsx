@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { ProductSaleRow } from '@/lib/sheets';
@@ -10,7 +10,7 @@ import { useWeeklySalesTableData } from '@/features/sales/hooks/useWeeklySalesTa
 import { WeeklySalesTable } from '@/features/sales/components/WeeklySalesTable';
 import { createPeriodEndDate } from '@/features/common/utils/date';
 import { useTenant } from '@/hooks/useTenant';
-import type { MetricType } from '@/features/sales/types';
+import type { MetricType, PeriodGranularity } from '@/features/sales/types';
 import vendasStyles from '@/styles/vendas.module.css';
 
 export default function WeeklySalesTableView() {
@@ -31,8 +31,11 @@ export default function WeeklySalesTableView() {
   const [productSearch, setProductSearch] = useState('');
   const [customerTypeSearch, setCustomerTypeSearch] = useState('');
   const [metric, setMetric] = useState<MetricType>('faturamento');
+  const [granularity, setGranularity] = useState<PeriodGranularity>('weekly');
+  const [isCustomPeriod, setIsCustomPeriod] = useState(false);
 
   // Estados da UI
+  const [showGranularityPanel, setShowGranularityPanel] = useState(false);
   const [showPeriodPanel, setShowPeriodPanel] = useState(false);
   const [showClientPanel, setShowClientPanel] = useState(false);
   const [showProductPanel, setShowProductPanel] = useState(false);
@@ -46,6 +49,39 @@ export default function WeeklySalesTableView() {
   // Hook de dados
   const sales = useSalesData(status === 'authenticated');
 
+  const lastDataDate = useMemo(() => {
+    if (rawData.length > 0) {
+      const timestamps = rawData.map(row => row.data.getTime());
+      return new Date(Math.max(...timestamps));
+    }
+    if (sales.periodEnd) {
+      return new Date(`${sales.periodEnd}T00:00:00`);
+    }
+    return null;
+  }, [rawData, sales.periodEnd]);
+
+  const computeRangeForGranularity = useCallback((referenceDate: Date, targetGranularity: PeriodGranularity) => {
+    const normalizedEnd = new Date(referenceDate);
+    normalizedEnd.setHours(0, 0, 0, 0);
+    const rangeStart = new Date(normalizedEnd);
+
+    if (targetGranularity === 'daily') {
+      rangeStart.setDate(rangeStart.getDate() - 13);
+    } else if (targetGranularity === 'monthly') {
+      const firstOfCurrentMonth = new Date(normalizedEnd.getFullYear(), normalizedEnd.getMonth(), 1);
+      firstOfCurrentMonth.setMonth(firstOfCurrentMonth.getMonth() - 2);
+      rangeStart.setTime(firstOfCurrentMonth.getTime());
+    } else {
+      // semanal: 12 períodos, total de 83 dias
+      rangeStart.setDate(rangeStart.getDate() - 83);
+    }
+
+    return {
+      startISO: rangeStart.toISOString().split('T')[0],
+      endISO: normalizedEnd.toISOString().split('T')[0],
+    };
+  }, []);
+
   // Sincronizar estados locais
   useEffect(() => {
     if (sales.rawData !== rawData) setRawData(sales.rawData);
@@ -53,18 +89,26 @@ export default function WeeklySalesTableView() {
     if (loading !== sales.loading) setLoading(sales.loading);
     if (initialLoad !== sales.initialLoad) setInitialLoad(sales.initialLoad);
     if (accessDenied !== sales.accessDenied) setAccessDenied(sales.accessDenied);
-    
-    // Definir período inicial baseado nas 12 semanas (83 dias)
-    if (!periodStart && sales.periodEnd) {
-      const endDate = new Date(sales.periodEnd + 'T00:00:00');
-      // Calcular data início: data fim - (7*12 - 1) = data fim - 83 dias
-      const startDate = new Date(endDate);
-      startDate.setDate(startDate.getDate() - 83);
-      
-      setPeriodStart(startDate.toISOString().split('T')[0]);
-      setPeriodEnd(sales.periodEnd);
+  }, [sales, rawData, meta, loading, initialLoad, accessDenied]);
+
+  useEffect(() => {
+    if (!lastDataDate || isCustomPeriod) {
+      return;
     }
-  }, [sales, rawData, meta, loading, initialLoad, accessDenied, periodStart]);
+    const range = computeRangeForGranularity(lastDataDate, granularity);
+    if (range.startISO === periodStart && range.endISO === periodEnd) {
+      return;
+    }
+    setPeriodStart(range.startISO);
+    setPeriodEnd(range.endISO);
+  }, [
+    lastDataDate,
+    isCustomPeriod,
+    computeRangeForGranularity,
+    granularity,
+    periodStart,
+    periodEnd,
+  ]);
 
   // Hook de filtros
   const filters = useSalesFilters({
@@ -86,10 +130,12 @@ export default function WeeklySalesTableView() {
     filteredData: filters.filteredData,
     endDate,
     metric,
+    granularity,
   });
 
   // Fechar todos os modais
   const closeAllModals = () => {
+    setShowGranularityPanel(false);
     setShowPeriodPanel(false);
     setShowClientPanel(false);
     setShowProductPanel(false);
@@ -98,9 +144,12 @@ export default function WeeklySalesTableView() {
   };
 
   // Abrir modal específico
-  const openModal = (modalType: 'period' | 'client' | 'product' | 'customerType' | 'metric') => {
+  const openModal = (modalType: 'granularity' | 'period' | 'client' | 'product' | 'customerType' | 'metric') => {
     closeAllModals();
     switch (modalType) {
+      case 'granularity':
+        setShowGranularityPanel(true);
+        break;
       case 'period':
         setShowPeriodPanel(true);
         break;
@@ -120,7 +169,13 @@ export default function WeeklySalesTableView() {
   };
 
   // Detectar clique fora dos modais
-  const isAnyModalOpen = showPeriodPanel || showClientPanel || showProductPanel || showCustomerTypePanel || showMetricPanel;
+  const isAnyModalOpen =
+    showGranularityPanel ||
+    showPeriodPanel ||
+    showClientPanel ||
+    showProductPanel ||
+    showCustomerTypePanel ||
+    showMetricPanel;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -197,6 +252,16 @@ export default function WeeklySalesTableView() {
     quantidade: 'Quantidade',
     caixas: 'Caixas',
   };
+  const granularityLabels: Record<PeriodGranularity, string> = {
+    weekly: 'Semanal',
+    daily: 'Diário',
+    monthly: 'Mensal',
+  };
+  const granularityDescriptions: Record<PeriodGranularity, string> = {
+    weekly: '12 períodos',
+    daily: 'Últimos 14 dias',
+    monthly: 'Últimos 3 meses',
+  };
 
   // Formatar exibição do período
   const formatPeriodDisplay = (start: string, end: string): string => {
@@ -206,6 +271,30 @@ export default function WeeklySalesTableView() {
     const startStr = startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     const endStr = endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     return `${startStr}–${endStr}`;
+  };
+
+  const handleGranularityChange = (nextGranularity: PeriodGranularity) => {
+    if (!lastDataDate) {
+      setGranularity(nextGranularity);
+      closeAllModals();
+      return;
+    }
+    const range = computeRangeForGranularity(lastDataDate, nextGranularity);
+    setGranularity(nextGranularity);
+    setIsCustomPeriod(false);
+    setPeriodStart(range.startISO);
+    setPeriodEnd(range.endISO);
+    closeAllModals();
+  };
+
+  const handlePeriodStartChange = (value: string) => {
+    setIsCustomPeriod(true);
+    setPeriodStart(value);
+  };
+
+  const handlePeriodEndChange = (value: string) => {
+    setIsCustomPeriod(true);
+    setPeriodEnd(value);
   };
 
   // Handlers dos filtros
@@ -233,6 +322,46 @@ export default function WeeklySalesTableView() {
         <h1 className={vendasStyles.brand}><span>{tenantName}</span> Visão Semanal</h1>
         <div className={vendasStyles['header-right']}>
           <div className={`${vendasStyles['filter-badges']} ${vendasStyles['desktop-only']}`}>
+            {/* Granularidade */}
+            <button
+              className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`}
+              title="Selecionar granularidade"
+              data-filter-button
+              onClick={() => (showGranularityPanel ? closeAllModals() : openModal('granularity'))}
+            >
+              <span className={vendasStyles['dot-indicator']}></span>
+              <span>{granularityLabels[granularity]}</span>
+              <span className={vendasStyles.caret}>▾</span>
+            </button>
+
+            {showGranularityPanel && (
+              <>
+                <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+                <div className={vendasStyles['period-panel']} data-modal-content>
+                  <div className={vendasStyles['filter-list-container']}>
+                    <ul className={vendasStyles['filter-list']}>
+                      {(['weekly', 'daily', 'monthly'] as PeriodGranularity[]).map(option => (
+                        <li
+                          key={option}
+                          className={`${vendasStyles['filter-list-item']} ${
+                            granularity === option ? vendasStyles['selected'] : ''
+                          }`}
+                          onClick={() => handleGranularityChange(option)}
+                        >
+                          <span className={vendasStyles['filter-label']}>
+                            {granularityLabels[option]}
+                          </span>
+                          <span className={vendasStyles['filter-description']}>
+                            {granularityDescriptions[option]}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* Filtro de período */}
             <button 
               className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`} 
@@ -254,7 +383,7 @@ export default function WeeklySalesTableView() {
                     <input 
                       type="date" 
                       value={periodStart}
-                      onChange={(e) => setPeriodStart(e.target.value)}
+                      onChange={(event) => handlePeriodStartChange(event.target.value)}
                     />
                   </div>
                   <div className={vendasStyles['period-row']}>
@@ -262,7 +391,7 @@ export default function WeeklySalesTableView() {
                     <input 
                       type="date" 
                       value={periodEnd}
-                      onChange={(e) => setPeriodEnd(e.target.value)}
+                      onChange={(event) => handlePeriodEndChange(event.target.value)}
                     />
                   </div>
                   <div className={vendasStyles['period-actions']}>
@@ -506,6 +635,44 @@ export default function WeeklySalesTableView() {
       {/* Filtros Mobile */}
       <div className={vendasStyles['mobile-filters']}>
         <div className={vendasStyles['filter-badges']}>
+          {/* Granularidade */}
+          <button
+            className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`}
+            title="Selecionar granularidade"
+            data-filter-button
+            onClick={() => (showGranularityPanel ? closeAllModals() : openModal('granularity'))}
+          >
+            <span className={vendasStyles['dot-indicator']}></span>
+            <span>{granularityLabels[granularity]}</span>
+            <span className={vendasStyles.caret}>▾</span>
+          </button>
+
+          {showGranularityPanel && (
+            <>
+              <div className={vendasStyles['modal-overlay']} onClick={closeAllModals}></div>
+              <div className={vendasStyles['period-panel']} data-modal-content>
+                <div className={vendasStyles['filter-list-container']}>
+                  <ul className={vendasStyles['filter-list']}>
+                    {(['weekly', 'daily', 'monthly'] as PeriodGranularity[]).map(option => (
+                      <li
+                        key={option}
+                        className={`${vendasStyles['filter-list-item']} ${
+                          granularity === option ? vendasStyles['selected'] : ''
+                        }`}
+                        onClick={() => handleGranularityChange(option)}
+                      >
+                        <span className={vendasStyles['filter-label']}>{granularityLabels[option]}</span>
+                        <span className={vendasStyles['filter-description']}>
+                          {granularityDescriptions[option]}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </>
+          )}
+
           {/* Filtro de período */}
           <button 
             className={`${vendasStyles.badge} ${vendasStyles['badge-interactive']}`} 
@@ -524,19 +691,19 @@ export default function WeeklySalesTableView() {
               <div className={vendasStyles['period-panel']} data-modal-content>
                 <div className={vendasStyles['period-row']}>
                   <label>Início</label>
-                  <input 
-                    type="date" 
-                    value={periodStart}
-                    onChange={(e) => setPeriodStart(e.target.value)}
-                  />
+                <input 
+                  type="date" 
+                  value={periodStart}
+                  onChange={(event) => handlePeriodStartChange(event.target.value)}
+                />
                 </div>
                 <div className={vendasStyles['period-row']}>
                   <label>Fim</label>
-                  <input 
-                    type="date" 
-                    value={periodEnd}
-                    onChange={(e) => setPeriodEnd(e.target.value)}
-                  />
+                <input 
+                  type="date" 
+                  value={periodEnd}
+                  onChange={(event) => handlePeriodEndChange(event.target.value)}
+                />
                 </div>
                 <div className={vendasStyles['period-actions']}>
                   <button className={`${vendasStyles.btn} ${vendasStyles.btnGhost}`} onClick={closeAllModals}>Fechar</button>
