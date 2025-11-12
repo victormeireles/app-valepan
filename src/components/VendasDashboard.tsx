@@ -13,7 +13,8 @@ import { useChartJS } from '@/features/common/hooks/useChartJS';
 import { useSalesData } from '@/features/sales/hooks/useSalesData';
 import { useSalesFilters } from '@/features/sales/hooks/useSalesFilters';
 import { createPeriodDates, formatPeriodDisplay, createPeriodStartDate, createPeriodEndDate, previousPeriodFromRange } from '@/features/common/utils/date';
-import type { KpisData, SemanaData, TopItem, RankingItem, ChartDataStructure, ModalData } from '@/features/sales/types';
+import type { ChartDataStructure, KpisData, RankingItem, SalesChartGranularity, TopItem } from '@/features/sales/types';
+import { ensureAxisLimits } from '@/features/sales/types';
 import { SalesKPISection } from '@/features/sales/components/SalesKPISection';
 import { WeekSalesChart } from '@/features/sales/components/WeekSalesChart';
 import { TopClientsChart } from '@/features/sales/components/TopClientsChart';
@@ -80,6 +81,7 @@ export default function VendasDashboard() {
   const [meta, setMeta] = useState<{hasPackages:boolean;hasBoxes:boolean;hasCustomerType:boolean} | null>(null);
   const [chartData, setChartData] = useState<ChartDataStructure | null>(null);
   const [charts, setCharts] = useState<Record<string, any>>({});
+  const [salesChartGranularity, setSalesChartGranularity] = useState<SalesChartGranularity>('weekly');
 
   if (status === 'unauthenticated') {
     redirect('/login');
@@ -573,7 +575,7 @@ export default function VendasDashboard() {
       if (chartData && typeof window !== 'undefined' && window.Chart) {
         renderCharts();
       }
-    }, [chartData]); // Remover loading como dependência
+    }, [chartData, salesChartGranularity]);
 
   const renderCharts = () => {
     if (!chartData) {
@@ -591,14 +593,20 @@ export default function VendasDashboard() {
     // Gráfico de semanas
     const ctxSemanas = document.getElementById('chart-semanas') as HTMLCanvasElement;
     if (ctxSemanas) {
+      const selectedBuckets = salesChartGranularity === 'weekly' ? chartData.semanas : chartData.dias;
+      const selectedAxisLimits = ensureAxisLimits(chartData.y1Limits?.[salesChartGranularity]);
+      const labels = selectedBuckets.map(bucket => bucket.label);
+      const faturamentoValues = selectedBuckets.map(bucket => bucket.faturamento);
+      const margemValues = selectedBuckets.map(bucket => bucket.margemBruta);
+
       newCharts.semanas = new ChartCtor(ctxSemanas, {
         type: 'bar',
         data: {
-          labels: chartData.semanas.map((s: SemanaData) => s.label),
+          labels,
           datasets: [
             {
               label: 'Margem Bruta',
-              data: chartData.semanas.map((s: SemanaData) => s.margemBruta),
+              data: margemValues,
               type: 'line',
               borderColor: '#FFA726',
               backgroundColor: 'rgba(255, 107, 107, 0.1)',
@@ -615,7 +623,7 @@ export default function VendasDashboard() {
             },
             {
               label: 'Faturamento',
-              data: chartData.semanas.map((s: SemanaData) => s.faturamento),
+              data: faturamentoValues,
               backgroundColor: '#1E88E5',
               borderRadius: 8,
               borderSkipped: 'bottom',
@@ -682,8 +690,8 @@ export default function VendasDashboard() {
               position: 'right',
               grace: '0%',
               beginAtZero: false,
-              min: chartData.y1Limits?.min || 0,
-              max: chartData.y1Limits?.max || 100,
+              min: selectedAxisLimits.min,
+              max: selectedAxisLimits.max,
               grid: { drawOnChartArea: false },
               ticks: { 
                 color: '#FFA726',
@@ -706,7 +714,7 @@ export default function VendasDashboard() {
             const faturamentoMeta = chart.getDatasetMeta(1);
             faturamentoMeta.data.forEach((bar: any, index: number) => {
               const value = faturamentoDataset.data[index];
-              if (value > 0) {
+              if (typeof value === 'number' && value > 0) {
                 ctx.fillStyle = '#cfe2ff'; // Cor azul clara para o texto
                 ctx.font = 'bold 11px sans-serif';
                 ctx.textAlign = 'center';
@@ -728,7 +736,7 @@ export default function VendasDashboard() {
             const margemMeta = chart.getDatasetMeta(0);
             margemMeta.data.forEach((point: any, index: number) => {
               const value = margemDataset.data[index];
-              if (value > 0) {
+              if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
                 ctx.fillStyle = '#FFF'; // Cor vermelha da linha
                 ctx.font = 'bold 10px sans-serif';
                 ctx.textAlign = 'center';
@@ -742,9 +750,9 @@ export default function VendasDashboard() {
       // Implementar click para filtrar período
       ctxSemanas.style.cursor = 'pointer';
       ctxSemanas.onclick = (evt: MouseEvent) => {
-        // Verificar se chartData e semanas existem
-        if (!chartData || !chartData.semanas || !Array.isArray(chartData.semanas)) {
-          console.warn('Dados de semanas não disponíveis para click');
+        // Verificar se chartData e buckets existem
+        if (!chartData || !Array.isArray(selectedBuckets)) {
+          console.warn('Dados de períodos não disponíveis para click');
           return;
         }
 
@@ -753,37 +761,37 @@ export default function VendasDashboard() {
         const index = points[0].index;
         
         // Verificar se o índice é válido
-        if (index < 0 || index >= chartData.semanas.length) {
-          console.warn('Índice de semana inválido:', index);
+        if (index < 0 || index >= selectedBuckets.length) {
+          console.warn('Índice de período inválido:', index);
           return;
         }
         
-        // Recuperar dados da semana clicada
-        const clickedWeek = chartData.semanas[index];
-        if (clickedWeek && clickedWeek.inicio && clickedWeek.fim) {
+        // Recuperar dados do período clicado
+        const clickedBucket = selectedBuckets[index];
+        if (clickedBucket && clickedBucket.inicio && clickedBucket.fim) {
           try {
-            // Usar as datas já calculadas da semana
-            const inicioSemana = new Date(clickedWeek.inicio);
-            const fimSemana = new Date(clickedWeek.fim);
+            // Usar as datas já calculadas do período
+            const inicioPeriodo = new Date(clickedBucket.inicio);
+            const fimPeriodo = new Date(clickedBucket.fim);
             
             // Verificar se as datas são válidas
-            if (isNaN(inicioSemana.getTime()) || isNaN(fimSemana.getTime())) {
-              console.warn('Datas inválidas na semana clicada:', clickedWeek);
+            if (isNaN(inicioPeriodo.getTime()) || isNaN(fimPeriodo.getTime())) {
+              console.warn('Datas inválidas no período clicado:', clickedBucket);
               return;
             }
             
             // Atualizar filtros
-            setPeriodStart(inicioSemana.toISOString().split('T')[0]);
-            setPeriodEnd(fimSemana.toISOString().split('T')[0]);
+            setPeriodStart(inicioPeriodo.toISOString().split('T')[0]);
+            setPeriodEnd(fimPeriodo.toISOString().split('T')[0]);
             
             // Reaplicar filtros
-            applyFilters(rawData, inicioSemana, fimSemana, selectedClients, selectedProducts);
+            applyFilters(rawData, inicioPeriodo, fimPeriodo, selectedClients, selectedProducts);
             
           } catch (error) {
             console.error('Erro ao processar datas da semana:', error);
           }
         } else {
-          console.warn('Dados da semana incompletos:', clickedWeek);
+          console.warn('Dados do período incompletos:', clickedBucket);
         }
       };
     }
@@ -2151,7 +2159,10 @@ export default function VendasDashboard() {
 
         {/* Gráficos */}
         <section className={vendasStyles.charts}>
-          <WeekSalesChart />
+          <WeekSalesChart
+            granularity={salesChartGranularity}
+            onGranularityChange={setSalesChartGranularity}
+          />
           <TopClientsChart
             chartData={chartData}
             filteredData={filteredData}

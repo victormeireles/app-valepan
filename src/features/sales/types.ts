@@ -43,13 +43,23 @@ export interface KpisData {
   };
 }
 
-export interface SemanaData {
+export interface TimeBucketData {
   label: string;
   faturamento: number;
   margemBruta: number;
   cmv: number;
   inicio: Date;
   fim: Date;
+}
+
+export type SemanaData = TimeBucketData;
+export type DiaData = TimeBucketData;
+
+export type SalesChartGranularity = 'weekly' | 'daily';
+
+export interface AxisLimits {
+  min: number;
+  max: number;
 }
 
 export interface TopItem {
@@ -86,15 +96,32 @@ export interface EngajamentoData {
 
 export interface ChartDataStructure {
   semanas: SemanaData[];
+  dias: DiaData[];
   topClientes: TopItem[];
   topProdutos: TopItem[];
   topTiposCliente: TopItem[];
   rankingUp: RankingItem[];
   rankingDown: RankingItem[];
   engajamento: EngajamentoData;
-  y1Limits?: {
-    min: number;
-    max: number;
+  y1Limits: Record<SalesChartGranularity, AxisLimits>;
+}
+
+export const DEFAULT_AXIS_LIMITS: AxisLimits = {
+  min: 0,
+  max: 100,
+};
+
+export function ensureAxisLimits(limits: AxisLimits | null | undefined): AxisLimits {
+  if (!limits) {
+    return DEFAULT_AXIS_LIMITS;
+  }
+
+  const sanitizedMin = Number.isFinite(limits.min) ? limits.min : DEFAULT_AXIS_LIMITS.min;
+  const sanitizedMax = Number.isFinite(limits.max) ? limits.max : DEFAULT_AXIS_LIMITS.max;
+
+  return {
+    min: sanitizedMin,
+    max: sanitizedMax,
   };
 }
 

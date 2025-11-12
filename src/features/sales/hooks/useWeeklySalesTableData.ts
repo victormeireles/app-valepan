@@ -10,20 +10,29 @@ import type {
 
 export type UseWeeklySalesTableDataArgs = {
   filteredData: ProductSaleRow[];
+  startDate: Date | null;
   endDate: Date | null;
   metric: MetricType;
   granularity: PeriodGranularity;
 };
 
 export function useWeeklySalesTableData(args: UseWeeklySalesTableDataArgs): SalesPeriodTableData | null {
-  const { filteredData, endDate, metric, granularity } = args;
+  const { filteredData, startDate, endDate, metric, granularity } = args;
 
   return useMemo(() => {
     if (!endDate || filteredData.length === 0) {
       return null;
     }
 
-    const periods = buildSalesPeriodRanges(endDate, granularity);
+    const periods = buildSalesPeriodRanges(
+      endDate,
+      granularity,
+      startDate ? { startDate } : undefined
+    );
+
+    if (periods.length === 0) {
+      return null;
+    }
 
     // Mapear dados por cliente e período
     const clientPeriodMap = new Map<string, Map<number, number>>();
@@ -118,6 +127,6 @@ export function useWeeklySalesTableData(args: UseWeeklySalesTableDataArgs): Sale
       totalRow,
       periods,
     };
-  }, [filteredData, endDate, metric, granularity]);
+  }, [filteredData, startDate, endDate, metric, granularity]);
 }
 

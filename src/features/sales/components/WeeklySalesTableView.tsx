@@ -8,7 +8,7 @@ import { useSalesData } from '@/features/sales/hooks/useSalesData';
 import { useSalesFilters } from '@/features/sales/hooks/useSalesFilters';
 import { useWeeklySalesTableData } from '@/features/sales/hooks/useWeeklySalesTableData';
 import { WeeklySalesTable } from '@/features/sales/components/WeeklySalesTable';
-import { createPeriodEndDate } from '@/features/common/utils/date';
+import { createPeriodEndDate, createPeriodStartDate } from '@/features/common/utils/date';
 import { useTenant } from '@/hooks/useTenant';
 import type { MetricType, PeriodGranularity } from '@/features/sales/types';
 import vendasStyles from '@/styles/vendas.module.css';
@@ -125,9 +125,11 @@ export default function WeeklySalesTableView() {
   const { selectedClients, setSelectedClients, selectedProducts, setSelectedProducts, selectedCustomerTypes, setSelectedCustomerTypes } = filters;
 
   // Hook para dados da tabela semanal
+  const startDate = useMemo(() => (periodStart ? createPeriodStartDate(periodStart) : null), [periodStart]);
   const endDate = useMemo(() => (periodEnd ? createPeriodEndDate(periodEnd) : null), [periodEnd]);
   const tableData = useWeeklySalesTableData({
     filteredData: filters.filteredData,
+    startDate,
     endDate,
     metric,
     granularity,

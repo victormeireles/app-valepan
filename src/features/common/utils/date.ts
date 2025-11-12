@@ -97,14 +97,83 @@ export function lastNWeeksRanges(
 export function buildSalesPeriodRanges(
   endDate: Date,
   granularity: PeriodGranularity,
-  options: { totalDays?: number; totalUnits?: number } = {}
+  options: { startDate?: Date; totalDays?: number; totalUnits?: number } = {}
 ): SalesPeriodRange[] {
   const endRef = toEndOfDay(endDate);
+  const { startDate, totalDays, totalUnits } = options;
+
+  if (startDate) {
+    const startRef = toStartOfDay(startDate);
+    if (startRef > endRef) {
+      return [];
+    }
+
+    switch (granularity) {
+      case 'daily': {
+        const daysDiff = diffDaysInclusive(startRef, endRef);
+        const ranges: SalesPeriodRange[] = [];
+        for (let i = 0; i < daysDiff; i++) {
+          const current = new Date(startRef);
+          current.setDate(startRef.getDate() + i);
+          const start = toStartOfDay(current);
+          const end = toEndOfDay(current);
+          ranges.push({
+            start,
+            end,
+            label: `${formatDDMM(start)} ${formatWeekdayAbbreviation(start)}`,
+            granularity: 'daily',
+          });
+        }
+        return ranges;
+      }
+      case 'monthly': {
+        const ranges: SalesPeriodRange[] = [];
+        let cursor = new Date(startRef);
+        while (cursor <= endRef) {
+          const periodStart = toStartOfDay(cursor);
+          const monthEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0);
+          const displayEnd = monthEnd > endRef ? new Date(endRef) : monthEnd;
+          ranges.push({
+            start: periodStart,
+            end: toEndOfDay(displayEnd),
+            label: formatMonthYear(periodStart),
+            granularity: 'monthly',
+          });
+          cursor = new Date(displayEnd);
+          cursor.setDate(displayEnd.getDate() + 1);
+          cursor = toStartOfDay(cursor);
+        }
+        return ranges;
+      }
+      case 'weekly':
+      default: {
+        const ranges: SalesPeriodRange[] = [];
+        let cursor = new Date(startRef);
+        while (cursor <= endRef) {
+          const periodStart = toStartOfDay(cursor);
+          const candidateEnd = new Date(periodStart);
+          candidateEnd.setDate(periodStart.getDate() + 6);
+          const displayEnd = candidateEnd > endRef ? new Date(endRef) : candidateEnd;
+          ranges.push({
+            start: periodStart,
+            end: toEndOfDay(displayEnd),
+            label: formatDDMM(periodStart) + '–' + formatDDMM(displayEnd),
+            granularity: 'weekly',
+          });
+          cursor = new Date(displayEnd);
+          cursor.setDate(displayEnd.getDate() + 1);
+          cursor = toStartOfDay(cursor);
+        }
+        return ranges;
+      }
+    }
+  }
+
   switch (granularity) {
     case 'daily': {
-      const totalDays = options.totalDays ?? 14;
+      const days = totalDays ?? 14;
       const ranges: SalesPeriodRange[] = [];
-      for (let i = 0; i < totalDays; i++) {
+      for (let i = 0; i < days; i++) {
         const current = new Date(endRef);
         current.setDate(endRef.getDate() - i);
         const start = toStartOfDay(current);
@@ -119,9 +188,9 @@ export function buildSalesPeriodRanges(
       return ranges;
     }
     case 'monthly': {
-      const totalMonths = options.totalUnits ?? 3;
+      const months = totalUnits ?? 3;
       const ranges: SalesPeriodRange[] = [];
-      for (let i = 0; i < totalMonths; i++) {
+      for (let i = 0; i < months; i++) {
         const monthReference = new Date(endRef);
         monthReference.setDate(1);
         monthReference.setMonth(monthReference.getMonth() - i);
@@ -140,9 +209,9 @@ export function buildSalesPeriodRanges(
     }
     case 'weekly':
     default: {
-      const weeks = options.totalUnits ?? 12;
-      const totalDays = options.totalDays ?? 83;
-      const daysPerWeek = Math.ceil(totalDays / weeks);
+      const weeks = totalUnits ?? 12;
+      const daysSpan = totalDays ?? 83;
+      const daysPerWeek = Math.ceil(daysSpan / weeks);
       const ranges: SalesPeriodRange[] = [];
       for (let i = 0; i < weeks; i++) {
         const weekEnd = new Date(endRef);

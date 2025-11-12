@@ -1,5 +1,6 @@
 import { ProductSaleRow } from '@/lib/sheets';
-import type { ChartDataStructure, SemanaData, TopItem, RankingItem } from '@/features/sales/types';
+import type { AxisLimits, ChartDataStructure, DiaData, RankingItem, SemanaData, TopItem } from '@/features/sales/types';
+import { DEFAULT_AXIS_LIMITS } from '@/features/sales/types';
 import { lastNWeeksRanges, toEndOfDay } from '@/features/common/utils/date';
 import { classifyEngagement } from '@/features/common/utils/engagement';
 
@@ -14,6 +15,23 @@ export type ComputeChartOptions = {
   filteredClients?: string[];
 };
 
+const LAST_DAYS_FOR_DAILY_VIEW = 14;
+
+const computeAxisLimits = (values: number[]): AxisLimits => {
+  const validValues = values.filter(value => !Number.isNaN(value) && value > 0);
+  if (validValues.length === 0) {
+    return DEFAULT_AXIS_LIMITS;
+  }
+
+  const minValue = Math.min(...validValues);
+  const maxValue = Math.max(...validValues);
+
+  return {
+    min: Math.max(0, minValue - 5),
+    max: maxValue + 15,
+  };
+};
+
 export function computeSalesChartData(
   filteredData: ProductSaleRow[],
   allData: ProductSaleRow[],
@@ -25,19 +43,16 @@ export function computeSalesChartData(
   const meta = options.meta;
 
   // 1) Semanas (evolução)
+  const userSelectedClients = options.filteredClients && options.filteredClients.length > 0
+    ? new Set(options.filteredClients)
+    : null;
+  const baseTimeSeriesData = userSelectedClients
+    ? allData.filter(row => userSelectedClients.has(row.cliente))
+    : allData;
+
   const weeks = lastNWeeksRanges(endDate, { totalDays: 55, weeks: 8 });
   const semanas: SemanaData[] = weeks.map(w => {
-    // Regra: a série semanal deve usar SEMPRE a base completa (allData),
-    // aplicando filtro apenas quando o usuário selecionou clientes específicos.
-    let dataToUse = allData;
-    const userSelectedClients = options.filteredClients && options.filteredClients.length > 0
-      ? new Set(options.filteredClients)
-      : null;
-    if (userSelectedClients) {
-      dataToUse = allData.filter(row => userSelectedClients.has(row.cliente));
-    }
-
-    const dadosSemana = dataToUse.filter(row =>
+    const dadosSemana = baseTimeSeriesData.filter(row =>
       row.data >= new Date(w.start.getFullYear(), w.start.getMonth(), w.start.getDate()) &&
       row.data <= toEndOfDay(w.end)
     );
@@ -53,6 +68,31 @@ export function computeSalesChartData(
       cmv,
       inicio: w.start,
       fim: w.end,
+    };
+  });
+
+  const dias: DiaData[] = Array.from({ length: LAST_DAYS_FOR_DAILY_VIEW }, (_, index) => {
+    const dayOffset = LAST_DAYS_FOR_DAILY_VIEW - 1 - index;
+    const targetDate = new Date(endDate);
+    targetDate.setHours(0, 0, 0, 0);
+    targetDate.setDate(targetDate.getDate() - dayOffset);
+
+    const dayStart = new Date(targetDate);
+    const dayEnd = toEndOfDay(dayStart);
+
+    const dadosDia = baseTimeSeriesData.filter(row => row.data >= dayStart && row.data <= dayEnd);
+
+    const faturamento = dadosDia.reduce((sum, row) => sum + row.valorTotal, 0);
+    const cmv = dadosDia.reduce((sum, row) => sum + (row.custoTotal ?? 0), 0);
+    const margemBruta = faturamento > 0 && cmv > 0 ? (1 - (cmv / faturamento)) * 100 : (faturamento > 0 ? 100 : 0);
+
+    return {
+      label: dayStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      faturamento,
+      margemBruta,
+      cmv,
+      inicio: dayStart,
+      fim: dayEnd,
     };
   });
 
@@ -207,21 +247,22 @@ export function computeSalesChartData(
   };
 
   // 7) Limites eixo secundário para margem
-  const margensBrutas = semanas.map(s => s.margemBruta).filter(m => !Number.isNaN(m) && m > 0);
-  const minMargem = margensBrutas.length > 0 ? Math.min(...margensBrutas) : 0;
-  const maxMargem = margensBrutas.length > 0 ? Math.max(...margensBrutas) : 100;
-  const y1Min = Math.max(0, minMargem - 5);
-  const y1Max = maxMargem + 15;
+  const weeklyLimits = computeAxisLimits(semanas.map(s => s.margemBruta));
+  const dailyLimits = computeAxisLimits(dias.map(d => d.margemBruta));
 
   return {
     semanas,
+    dias,
     topClientes,
     topProdutos,
     topTiposCliente,
     rankingUp,
     rankingDown,
     engajamento,
-    y1Limits: { min: y1Min, max: y1Max },
+    y1Limits: {
+      weekly: weeklyLimits,
+      daily: dailyLimits,
+    },
   };
 }
 
