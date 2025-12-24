@@ -6,13 +6,15 @@ export function computeSalesKPIs(
   currentData: ProductSaleRow[],
   allData: ProductSaleRow[],
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  previousDataFiltered?: ProductSaleRow[]
 ): KpisData {
   const startOfDay = toStartOfDay(startDate);
   const endOfDay = toEndOfDay(endDate);
   const { prevStartDate, prevEndDate, compareLabel } = previousPeriodFromRange(startOfDay, endOfDay);
 
-  const previousData = allData.filter(row => row.data >= prevStartDate && row.data <= prevEndDate);
+  // Se previousDataFiltered foi fornecido, usar ele. Caso contrário, calcular a partir de allData (comportamento antigo)
+  const previousData = previousDataFiltered ?? allData.filter(row => row.data >= prevStartDate && row.data <= prevEndDate);
 
   const faturamentoAtual = currentData.reduce((sum, row) => sum + row.valorTotal, 0);
   // Contar pedidos distintos usando o campo 'pedido'
@@ -50,15 +52,43 @@ export function computeSalesKPIs(
   const ticketMedioAtual = pedidosAtual > 0 ? faturamentoAtual / pedidosAtual : 0;
   const ticketMedioAnterior = pedidosAnterior > 0 ? faturamentoAnterior / pedidosAnterior : 0;
 
+  // Se previousDataFiltered foi fornecido, significa que há filtros aplicados
+  // Nesse caso, aplicar os mesmos filtros ao YTD
+  // Inferir filtros a partir dos dados filtrados
+  const hasFilters = previousDataFiltered !== undefined;
+  const filteredClients = hasFilters ? new Set(currentData.map(row => row.cliente)) : null;
+  const filteredProducts = hasFilters ? new Set(currentData.map(row => row.produto).filter(Boolean)) : null;
+  const filteredCustomerTypes = hasFilters ? new Set(currentData.map(row => row.tipoCliente).filter(Boolean)) : null;
+
   const anoAtual = new Date().getFullYear();
   const inicioAno = new Date(anoAtual, 0, 1);
-  const ytdData = allData.filter(row => row.data >= inicioAno && row.data <= endDate);
+  let ytdData = allData.filter(row => row.data >= inicioAno && row.data <= endDate);
+  // Aplicar filtros ao YTD se houver filtros aplicados
+  if (hasFilters && filteredClients) {
+    ytdData = ytdData.filter(row => filteredClients.has(row.cliente));
+  }
+  if (hasFilters && filteredProducts && filteredProducts.size > 0) {
+    ytdData = ytdData.filter(row => row.produto && filteredProducts.has(row.produto));
+  }
+  if (hasFilters && filteredCustomerTypes && filteredCustomerTypes.size > 0) {
+    ytdData = ytdData.filter(row => row.tipoCliente && filteredCustomerTypes.has(row.tipoCliente));
+  }
   const faturamentoYTD = ytdData.reduce((sum, row) => sum + row.valorTotal, 0);
 
   const anoAnterior = anoAtual - 1;
   const inicioAnoAnterior = new Date(anoAnterior, 0, 1);
   const fimAnoAnterior = new Date(anoAnterior, endDate.getMonth(), endDate.getDate());
-  const ytdDataAnterior = allData.filter(row => row.data >= inicioAnoAnterior && row.data <= fimAnoAnterior);
+  let ytdDataAnterior = allData.filter(row => row.data >= inicioAnoAnterior && row.data <= fimAnoAnterior);
+  // Aplicar os mesmos filtros ao YTD anterior
+  if (hasFilters && filteredClients) {
+    ytdDataAnterior = ytdDataAnterior.filter(row => filteredClients.has(row.cliente));
+  }
+  if (hasFilters && filteredProducts && filteredProducts.size > 0) {
+    ytdDataAnterior = ytdDataAnterior.filter(row => row.produto && filteredProducts.has(row.produto));
+  }
+  if (hasFilters && filteredCustomerTypes && filteredCustomerTypes.size > 0) {
+    ytdDataAnterior = ytdDataAnterior.filter(row => row.tipoCliente && filteredCustomerTypes.has(row.tipoCliente));
+  }
   const faturamentoYTDAnterior = ytdDataAnterior.reduce((sum, row) => sum + row.valorTotal, 0);
 
   const lastDay = new Date(Math.max(...allData.map(row => row.data.getTime())));
@@ -71,7 +101,17 @@ export function computeSalesKPIs(
 
   const prevMonthStart = new Date(startDate.getFullYear(), startDate.getMonth() - 1, 1);
   const prevMonthEnd = new Date(startDate.getFullYear(), startDate.getMonth(), 0, 23, 59, 59, 999);
-  const prevMonthData = allData.filter(row => row.data >= prevMonthStart && row.data <= prevMonthEnd);
+  let prevMonthData = allData.filter(row => row.data >= prevMonthStart && row.data <= prevMonthEnd);
+  // Aplicar filtros ao mês anterior se houver filtros aplicados
+  if (hasFilters && filteredClients) {
+    prevMonthData = prevMonthData.filter(row => filteredClients.has(row.cliente));
+  }
+  if (hasFilters && filteredProducts && filteredProducts.size > 0) {
+    prevMonthData = prevMonthData.filter(row => row.produto && filteredProducts.has(row.produto));
+  }
+  if (hasFilters && filteredCustomerTypes && filteredCustomerTypes.size > 0) {
+    prevMonthData = prevMonthData.filter(row => row.tipoCliente && filteredCustomerTypes.has(row.tipoCliente));
+  }
   const prevMonthTotal = prevMonthData.reduce((sum, row) => sum + row.valorTotal, 0);
   const prevMonthOrders = prevMonthData.length;
 

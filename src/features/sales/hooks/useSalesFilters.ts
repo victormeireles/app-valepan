@@ -62,7 +62,7 @@ export function useSalesFilters(args: UseSalesFiltersArgs): UseSalesFiltersState
     if (products.length > 0) previousData = previousData.filter(r => r.produto && products.includes(r.produto));
     if (customerTypes.length > 0) previousData = previousData.filter(r => r.tipoCliente && customerTypes.includes(r.tipoCliente));
 
-    setKpis(computeSalesKPIs(f, rawData, startDate, endDate));
+    setKpis(computeSalesKPIs(f, rawData, startDate, endDate, previousData));
     setChartData(
       computeSalesChartData(
         f,
